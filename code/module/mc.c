@@ -4,6 +4,7 @@ contained in the mc.h header file.
 */
 
 #include "settings.h"
+#include "raymath.h"
 #include "mc.h"
 
 mc mc_init(){
@@ -39,41 +40,48 @@ mc mc_init(){
     return new_mc;
 }
 
-void mc_update(mc* mc) {
+void mc_update(mc* mc){
+    /* Update the position, and character. */
     if (mc->moving_right){
         mc->position.x += mc_speed;
+        mc->x_direction = 1;
+        
         if (mc->y_direction){
             mc->character = mc->b_right;
         } else{
             mc->character = mc->t_right;
         }
-        mc->x_direction = 1;
     }
     if (mc->moving_left){
         mc->position.x -= mc_speed;
+        mc->x_direction = 0;
+        
         if (mc->y_direction){
             mc->character = mc->b_left;
         } else{
             mc->character = mc->t_left;
         }
-        mc->x_direction = 0;
     }
     if (mc->moving_up){
         mc->position.y -= mc_speed;
+        mc->y_direction = 0;
+        
         if (mc->x_direction){
             mc->character = mc->t_right;
         } else{
             mc->character = mc->t_left;
         }
-        mc->y_direction = 0;
     }
     if (mc->moving_down){
         mc->position.y += mc_speed;
+        mc->y_direction = 1;
+        
         if (mc->x_direction){
             mc->character = mc->b_right;
         } else{
             mc->character = mc->b_left;
         }
-        mc->y_direction = 1;
     }
+    mc->position.x = Clamp(mc->position.x, 0.0f, (float)window_width - mc_size.x);
+    mc->position.y = Clamp(mc->position.y, 0.0f, (float)window_height - mc_size.y);
 }
