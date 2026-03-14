@@ -1,4 +1,8 @@
-/* This file contains the main logic for the game. */
+/*
+This file contains the main logic for the game.
+
+Made by Andrew Zhuo and Steven Kenneth Darwy
+*/
 
 #include <stdio.h>
 #include "raylib.h"
@@ -21,7 +25,9 @@ void InitGame(Settings* game_settings);
 void RunGame(Character* player, Audio* game_audio, Settings* game_settings, Scene* game_scene, Dialogue* dialogue, Interactable* worldObjects);
 
 int main(void){
-    // Initialize the game.
+    /* Initialize the game */
+    
+    // Initialize the settings and game.
     Settings game_settings = InitSettings();
     InitGame(&game_settings);
     Interactable worldObjects[2] = {
@@ -32,28 +38,40 @@ int main(void){
     // Load game resources.
     Character player = InitCharacter(&game_settings);
     Audio game_audio = InitAudio(&game_settings);
-    Scene game_scene = scene_init(&game_settings);
+    Scene game_scene = InitScene(&game_settings);
+    Interactive game_interactive = InitInteractive(&game_settings);
+    Map game_map = InitMap("../assets/map/map.json");
+    GameContext game_context = InitGameContext(&game_map, &player, &game_settings);
     Dialogue intro_dialogue = LoadDialogue("../assets/text/dialogue1.txt");
-    
 
     // Run the game.
-    RunGame(&player, &game_audio, &game_settings, &game_scene, &intro_dialogue, worldObjects);
+    RunGame(&player, &game_audio, &game_settings, &game_scene, &game_interactive, &intro_dialogue, &game_map, worldObjects, &game_context);
+
+    // End the game.
+    EndGame(&game_audio, &player, &game_scene, &game_interactive, &game_map);
+
     return 0;
 }
 
 void InitGame(Settings* game_settings){
+    /* Initialize the game */
+    
     // Prepare and initialize the game windows.
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT | FLAG_VSYNC_HINT);
     SetTargetFPS(game_settings->fps);
     InitWindow(game_settings->window_width, game_settings->window_height, "Aisling");
+
+    // Load game icon.
     Image icon = LoadImage("../assets/images/icon/app_icon.png");
     SetWindowIcon(icon);
     UnloadImage(icon);
-    SetExitKey(0); // Prevent closing the window with ESC automatically so we can use it for pause
+
+    // Prevent closing the window with ESC automatically so it can be used for pause.
+    SetExitKey(0);
 }
 
-
-void RunGame(Character* player, Audio* game_audio, Settings* game_settings, Scene* game_scene, Dialogue* intro_dialogue, Interactable* worldObjects){
+void RunGame(Character* player, Audio* game_audio, Settings* game_settings, Scene* game_scene, Interactive* game_interactive, Dialogue* intro_dialogue, Interactable* worldObjects Map* game_map, GameContext* game_context){
+    /* Run the game */
     GameState game_state = GAMEPLAY;
     Dialogue* current_dialogue = intro_dialogue; // Pointer to the currently active dialogue (if any)
     Interactable* objectToInteractWith = NULL; 
@@ -146,10 +164,17 @@ void RunGame(Character* player, Audio* game_audio, Settings* game_settings, Scen
         }
         EndDrawing();
     }
+}
 
+void EndGame(Audio* game_audio, Character* player, Scene* game_scene, Interactive* game_interactive, Map* game_map){
+    /* End the game */
+    
     // Prepare to stop the game.
     CloseAudio(game_audio);
     CloseCharacter(player);
+    CloseScene(game_scene);
+    CloseInteractive(game_interactive);
+    FreeMap(game_map);
 
     // Close the game window.
     CloseWindow();

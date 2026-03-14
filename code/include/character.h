@@ -1,6 +1,8 @@
 /*
 This file contains variable declarations and function prototypes for the
 mc module.
+
+Module made by Andrew Zhuo.
 */
 
 #ifndef CHARACTER_H
@@ -8,6 +10,8 @@ mc module.
 
 #include <stdbool.h>
 #include "settings.h"
+
+typedef struct Map Map;
 
 typedef struct Character{
     Texture2D sprite_idle;
@@ -28,8 +32,9 @@ typedef struct Character{
 } Character;
 
 
-Character InitCharacter(Settings* game_settings);
-void UpdateCharacter(Character* character, Settings* game_settings);
-void CloseCharacter(Character* character);
-void DrawCharacter(Character* character);
+Character InitCharacter(Settings* game_settings);                                                      // Initialize the character.
+void UpdateCharacter(Character* character, Settings* game_settings, Vector2 map_size, Map* map);       // Update the character.
+void CloseCharacter(Character* character);                                                             // Close the character.
+void DrawCharacter(Character* character);                                                              // Draw the character.
+
 #endif

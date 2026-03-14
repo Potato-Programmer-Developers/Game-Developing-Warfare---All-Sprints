@@ -1,22 +1,29 @@
 /*
 This module stores the implementation of the functions contained in the
 audio.h header file.
+
+Module made by Andrew Zhuo.
 */
 
 #include "audio.h"
 
 Audio InitAudio(Settings* game_settings){
     /* Initialize audio device and loading game audio. */
+
+    // Initialize audio device
     Audio new_audio = {0};
     InitAudioDevice();
+
+    // Set master volume
     SetMasterVolume(game_settings->game_volume);
+
+    // Load game audio
     new_audio.bg_music = LoadMusicStream("../assets/audios/bg_music.ogg");
     new_audio.scream_sound = LoadSound("../assets/audios/ghost_scream.wav");
 
-    // Play background music.
+    // Play background music
     PlayMusicStream(new_audio.bg_music);
 
-    // return the game audio.
     return new_audio;
 }
 
