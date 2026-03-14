@@ -12,14 +12,7 @@ Made by Andrew Zhuo and Steven Kenneth Darwy
 #include "scene.h"
 #include "map.h"
 #include "game_context.h"
-
-typedef enum{
-    /* This enum contains the states of the game. */
-    GAMEPLAY,      // Game is running.
-    PAUSE,         // Game is paused.
-    SETTINGS,      // Settings menu is open.
-    GAMEOVER       // Game is over.
-} GameState;
+#include "state.h"
 
 void InitGame(Settings* game_settings);
 void RunGame(Character* player, Audio* game_audio, Settings* game_settings, Scene* game_scene, Interactive* game_interactive, Map* game_map, GameContext* game_context);
@@ -68,12 +61,12 @@ void InitGame(Settings* game_settings){
 
 void RunGame(Character* player, Audio* game_audio, Settings* game_settings, Scene* game_scene, Interactive* game_interactive, Map* game_map, GameContext* game_context){
     /* Run the game */
-    GameState game_state = GAMEPLAY;
+    GameState game_state = MAINMENU;
     
     while (!WindowShouldClose()){
         // Update audio stream.
         UpdateAudio(game_audio);
-        
+          
         // Toggle pause state
         if (IsKeyPressed(KEY_ESCAPE)){
             if (game_state == GAMEPLAY) {
@@ -99,15 +92,22 @@ void RunGame(Character* player, Audio* game_audio, Settings* game_settings, Scen
         // Draw game assets to the screen.
         BeginDrawing();
         ClearBackground(BLACK);
-
-        if (game_state == GAMEPLAY){
+        if (game_state == MAINMENU){
+            ShowCursor();
+            UpdateInteractive(game_interactive, game_settings, &game_state);
+            DrawMainMenu(game_scene, game_interactive, game_settings);
+            if (game_interactive->is_mm_play_clicked) {
+                game_state = GAMEPLAY;
+                HideCursor();
+            }
+        } else if (game_state == GAMEPLAY){
             BeginMode2D(game_context->camera);
             DrawMap(game_map);
             DrawCharacter(player); 
             DrawTexture(game_scene->vignette, 0, 0, WHITE);
             EndMode2D();
         } else if (game_state == PAUSE){
-            UpdateInteractive(game_interactive, game_settings);
+            UpdateInteractive(game_interactive, game_settings, &game_state);
             
             if (game_interactive->is_play_clicked) {
                 game_state = GAMEPLAY;
@@ -117,10 +117,21 @@ void RunGame(Character* player, Audio* game_audio, Settings* game_settings, Scen
             } else if (game_interactive->is_quit_clicked) {
                 break;    // Exit the game.
             }
-            
-            DrawPauseMenu(game_scene, game_settings, game_interactive);
+            } else if (game_state == PAUSE){
+                UpdateInteractive(game_interactive, game_settings, &game_state);
+                
+                if (game_interactive->is_play_clicked) {
+                    game_state = GAMEPLAY;
+                    HideCursor();
+                } else if (game_interactive->is_settings_clicked) {
+                    game_state = SETTINGS;
+                } else if (game_interactive->is_quit_clicked) {
+                    break;    // Exit the game.
+                }
+                
+                DrawPauseMenu(game_scene, game_settings, game_interactive);
         } else if (game_state == SETTINGS){
-            UpdateInteractive(game_interactive, game_settings);
+            UpdateInteractive(game_interactive, game_settings, &game_state);
             
             // Set master volume
             SetMasterVolume(game_settings->game_volume);

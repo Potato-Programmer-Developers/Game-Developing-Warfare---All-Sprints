@@ -9,6 +9,7 @@ Module made by Andrew Zhuo.
 #define INTERACTIVE_H
 
 #include "settings.h"
+#include "state.h"
 
 typedef struct Interactive{
     /* This struct contains the information for interactive elements in the game. */
@@ -22,15 +23,18 @@ typedef struct Interactive{
     Rectangle play_bounds;       // Play button bounds.
     Rectangle settings_bounds;   // Settings button bounds.
     Rectangle quit_bounds;       // Quit button bounds.
+    Rectangle mm_play_bounds;    // Main menu play button bounds.
 
     // Interaction flags
     bool is_play_clicked;        // Whether the play button is clicked.
     bool is_settings_clicked;    // Whether the settings button is clicked.
     bool is_quit_clicked;        // Whether the quit button is clicked.
+    bool is_mm_play_clicked;     // Whether the main menu play button is clicked.
 
     bool is_play_hovered;        // Whether the play button is hovered.
     bool is_settings_hovered;    // Whether the settings button is hovered.
     bool is_quit_hovered;        // Whether the quit button is hovered.
+    bool is_mm_play_hovered;     // Whether the main menu play button is hovered.
 
     // Slider bounds, size, and state
     Rectangle volume_slider_bar;   // Volume slider bar bounds.
@@ -43,7 +47,7 @@ typedef struct Interactive{
 } Interactive;
 
 Interactive InitInteractive(Settings* game_settings);                             // Initializes the interactive elements.
-void UpdateInteractive(Interactive* interactive, Settings* game_settings);        // Updates the interactive elements.
+void UpdateInteractive(Interactive* interactive, Settings* game_settings, GameState* state);        // Updates the interactive elements.
 void CloseInteractive(Interactive* interactive);                                  // Closes the interactive elements.
 
 #endif

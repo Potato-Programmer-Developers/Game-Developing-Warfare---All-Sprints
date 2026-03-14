@@ -31,9 +31,15 @@ Texture2D LoadBackground(const char* path, Settings* game_settings){
     return background_texture;
 }
 
-void DrawMainMenu(Scene* scene){
+void DrawMainMenu(Scene* scene, Interactive* game_interactive, Settings* game_settings){
     /* Draw main menu scene. */
     DrawTexture(scene->mainmenu_background, 0, 0, WHITE);
+    DrawTexture(
+        game_interactive->play_button,
+        game_interactive->mm_play_bounds.x, 
+        game_interactive->mm_play_bounds.y,
+        game_interactive->is_mm_play_hovered ? GRAY : WHITE
+    );
 }
 
 void DrawPauseMenu(Scene* scene, Settings* game_settings, Interactive* game_interactive){
