@@ -36,11 +36,6 @@ void DrawMainMenu(Scene* scene){
     DrawTexture(scene->mainmenu_background, 0, 0, WHITE);
 }
 
-void DrawInGame(Scene* scene){
-    /* Draw in-game scene. */
-    DrawTexture(scene->game_background, 0, 0, WHITE);
-}
-
 void DrawPauseMenu(Scene* scene, Settings* game_settings, Interactive* game_interactive){
     /* Draw pause menu scene. */
 

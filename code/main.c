@@ -10,6 +10,7 @@ Made by Andrew Zhuo and Steven Kenneth Darwy
 #include "audio.h"
 #include "interactive.h"
 #include "scene.h"
+#include "map.h"
 
 typedef enum {
     /* This enum contains the states of the game. */
@@ -20,8 +21,8 @@ typedef enum {
 } GameState;
 
 void InitGame(Settings* game_settings);
-void RunGame(Character* player, Audio* game_audio, Settings* game_settings, Scene* game_scene, Interactive* game_interactive);
-void EndGame(Audio* game_audio, Character* player, Scene* game_scene, Interactive* game_interactive);
+void RunGame(Character* player, Audio* game_audio, Settings* game_settings, Scene* game_scene, Interactive* game_interactive, Map* game_map);
+void EndGame(Audio* game_audio, Character* player, Scene* game_scene, Interactive* game_interactive, Map* game_map);
 
 int main(void){
     /* Initialize the game */
@@ -35,12 +36,13 @@ int main(void){
     Audio game_audio = InitAudio(&game_settings);
     Scene game_scene = InitScene(&game_settings);
     Interactive game_interactive = InitInteractive(&game_settings);
+    Map game_map = InitMap("../assets/map/map.json");
 
     // Run the game.
-    RunGame(&player, &game_audio, &game_settings, &game_scene, &game_interactive);
+    RunGame(&player, &game_audio, &game_settings, &game_scene, &game_interactive, &game_map);
 
     // End the game.
-    EndGame(&game_audio, &player, &game_scene, &game_interactive);
+    EndGame(&game_audio, &player, &game_scene, &game_interactive, &game_map);
 
     return 0;
 }
@@ -62,7 +64,7 @@ void InitGame(Settings* game_settings){
     SetExitKey(0);
 }
 
-void RunGame(Character* player, Audio* game_audio, Settings* game_settings, Scene* game_scene, Interactive* game_interactive){
+void RunGame(Character* player, Audio* game_audio, Settings* game_settings, Scene* game_scene, Interactive* game_interactive, Map* game_map){
     /* Run the game */
     GameState game_state = GAMEPLAY;
     
@@ -93,7 +95,7 @@ void RunGame(Character* player, Audio* game_audio, Settings* game_settings, Scen
         BeginDrawing();
         ClearBackground(BLACK);
         if (game_state == GAMEPLAY){
-            DrawInGame(game_scene);
+            DrawMap(game_map);
             DrawCharacter(player); 
             DrawTexture(game_scene->vignette, 0, 0, WHITE);
         } else if (game_state == PAUSE){
@@ -125,7 +127,7 @@ void RunGame(Character* player, Audio* game_audio, Settings* game_settings, Scen
     }
 }
 
-void EndGame(Audio* game_audio, Character* player, Scene* game_scene, Interactive* game_interactive){
+void EndGame(Audio* game_audio, Character* player, Scene* game_scene, Interactive* game_interactive, Map* game_map){
     /* End the game */
     
     // Prepare to stop the game.
@@ -133,6 +135,7 @@ void EndGame(Audio* game_audio, Character* player, Scene* game_scene, Interactiv
     CloseCharacter(player);
     CloseScene(game_scene);
     CloseInteractive(game_interactive);
+    FreeMap(game_map);
 
     // Close the game window.
     CloseWindow();
