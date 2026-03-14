@@ -3,7 +3,6 @@ This is for scene managing, such as loading and drawing the background.
 
 Module made by Andrew Zhuo and Steven Kenneth Darwy.
 */
-
 #include "scene.h"
 
 Scene InitScene(Settings* game_settings){
