@@ -22,7 +22,6 @@ typedef struct Scene{
 Scene InitScene(Settings* game_settings);                                                       // Initializes the game scene.
 Texture2D LoadBackground(const char* path, Settings* game_settings);                            // Loads the background texture.
 void DrawMainMenu(Scene* scene, Interactive* interactive, Settings* game_settings);                                                                // Draws the main menu background.
-void DrawInGame(Scene* scene);                                                                  // Draws the in-game background.
 void DrawPauseMenu(Scene* scene, Settings* game_settings, Interactive* game_interactive);       // Draws the pause menu background.
 void DrawSettings(Scene* scene, Settings* game_settings, Interactive* game_interactive);        // Draws the settings menu background.
 void CloseScene(Scene* scene);                                                                  // Closes the game scene and unloads textures.

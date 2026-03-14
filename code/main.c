@@ -101,7 +101,6 @@ void RunGame(Character* player, Audio* game_audio, Settings* game_settings, Scen
                 HideCursor();
             }
         } else if (game_state == GAMEPLAY){
-            DrawInGame(game_scene);
             DrawCharacter(player); 
             DrawTexture(game_scene->vignette, 0, 0, WHITE);
             EndMode2D();
