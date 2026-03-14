@@ -43,7 +43,7 @@ Character InitCharacter(Settings *game_settings) {
   return new_character;
 }
 
-void UpdateCharacter(Character *character, Settings *game_settings){
+void UpdateCharacter(Character *character, Settings *game_settings, Vector2 map_size){
   /* Update character movement and animation. */
 
   // Check if the character is idling, walking, or running
@@ -96,13 +96,9 @@ void UpdateCharacter(Character *character, Settings *game_settings){
     character->direction = 0;
   }
 
-  // Update character position clamping
-  character->position.x =
-      Clamp(character->position.x, 0.0f,
-            (float)game_settings->window_width - (character->size.x * 0.7f));
-  character->position.y =
-      Clamp(character->position.y, 0.0f,
-            (float)game_settings->window_height - (character->size.y * 0.7f));
+  // Update character position clamping to map boundaries
+  character->position.x = Clamp(character->position.x, 0.0f, map_size.x - character->size.x);
+  character->position.y = Clamp(character->position.y, 0.0f, map_size.y - character->size.y);
 
   // Update character animation frame
   character->frame_counter++;

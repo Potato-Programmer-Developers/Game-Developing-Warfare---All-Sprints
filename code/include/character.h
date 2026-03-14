@@ -32,9 +32,9 @@ typedef struct Character{
 } Character;
 
 
-Character InitCharacter(Settings* game_settings);                         // Initialize the character.
-void UpdateCharacter(Character* character, Settings* game_settings);      // Update the character.
-void CloseCharacter(Character* character);                                // Close the character.
-void DrawCharacter(Character* character);                                 // Draw the character.
+Character InitCharacter(Settings* game_settings);                                           // Initialize the character.
+void UpdateCharacter(Character* character, Settings* game_settings, Vector2 map_size);      // Update the character.
+void CloseCharacter(Character* character);                                                  // Close the character.
+void DrawCharacter(Character* character);                                                   // Draw the character.
 
 #endif

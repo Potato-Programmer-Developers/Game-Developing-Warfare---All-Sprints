@@ -11,8 +11,9 @@ Made by Andrew Zhuo and Steven Kenneth Darwy
 #include "interactive.h"
 #include "scene.h"
 #include "map.h"
+#include "game_context.h"
 
-typedef enum {
+typedef enum{
     /* This enum contains the states of the game. */
     GAMEPLAY,      // Game is running.
     PAUSE,         // Game is paused.
@@ -21,7 +22,7 @@ typedef enum {
 } GameState;
 
 void InitGame(Settings* game_settings);
-void RunGame(Character* player, Audio* game_audio, Settings* game_settings, Scene* game_scene, Interactive* game_interactive, Map* game_map);
+void RunGame(Character* player, Audio* game_audio, Settings* game_settings, Scene* game_scene, Interactive* game_interactive, Map* game_map, GameContext* game_context);
 void EndGame(Audio* game_audio, Character* player, Scene* game_scene, Interactive* game_interactive, Map* game_map);
 
 int main(void){
@@ -37,9 +38,10 @@ int main(void){
     Scene game_scene = InitScene(&game_settings);
     Interactive game_interactive = InitInteractive(&game_settings);
     Map game_map = InitMap("../assets/map/map.json");
+    GameContext game_context = InitGameContext(&game_map, &player, &game_settings);
 
     // Run the game.
-    RunGame(&player, &game_audio, &game_settings, &game_scene, &game_interactive, &game_map);
+    RunGame(&player, &game_audio, &game_settings, &game_scene, &game_interactive, &game_map, &game_context);
 
     // End the game.
     EndGame(&game_audio, &player, &game_scene, &game_interactive, &game_map);
@@ -64,7 +66,7 @@ void InitGame(Settings* game_settings){
     SetExitKey(0);
 }
 
-void RunGame(Character* player, Audio* game_audio, Settings* game_settings, Scene* game_scene, Interactive* game_interactive, Map* game_map){
+void RunGame(Character* player, Audio* game_audio, Settings* game_settings, Scene* game_scene, Interactive* game_interactive, Map* game_map, GameContext* game_context){
     /* Run the game */
     GameState game_state = GAMEPLAY;
     
@@ -88,11 +90,15 @@ void RunGame(Character* player, Audio* game_audio, Settings* game_settings, Scen
             if (player->position.x == 200){
                 PlayScream(game_audio);
             }
-            UpdateCharacter(player, game_settings);
+            Vector2 map_size = {(float)game_context->map->tiled_map->width * game_context->map->tiled_map->tilewidth, 
+                                (float)game_context->map->tiled_map->height * game_context->map->tiled_map->tileheight};
+            UpdateCharacter(player, game_settings, map_size);
+            UpdateGameContext(game_context, game_settings, map_size);
         }
         
         // Draw game assets to the screen.
         BeginDrawing();
+        BeginMode2D(game_context->camera);
         ClearBackground(BLACK);
         if (game_state == GAMEPLAY){
             DrawMap(game_map);
@@ -123,6 +129,7 @@ void RunGame(Character* player, Audio* game_audio, Settings* game_settings, Scen
             
             DrawSettings(game_scene, game_settings, game_interactive);
         }
+        EndMode2D();
         EndDrawing();
     }
 }
