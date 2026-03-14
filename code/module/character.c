@@ -8,6 +8,7 @@ Module made by Andrew Zhuo.
 #include "character.h"
 #include "raymath.h"
 #include "settings.h"
+#include "map.h"
 
 Character InitCharacter(Settings *game_settings) {
   /* Initialize the character. */
@@ -43,7 +44,7 @@ Character InitCharacter(Settings *game_settings) {
   return new_character;
 }
 
-void UpdateCharacter(Character *character, Settings *game_settings, Vector2 map_size){
+void UpdateCharacter(Character *character, Settings *game_settings, Vector2 map_size, Map *map){
   /* Update character movement and animation. */
 
   // Check if the character is idling, walking, or running
@@ -78,27 +79,46 @@ void UpdateCharacter(Character *character, Settings *game_settings, Vector2 map_
 
   character->frame_rect.width = (float)character->sprite.width / sprite_columns;
 
-  // Update character position
+  // Calculate intended movement
+  Vector2 movement = {0, 0};
   if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A)){
-    character->position.x -= character->speed;
+    movement.x -= character->speed;
     character->direction = 1;
   }
   if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)){
-    character->position.x += character->speed;
+    movement.x += character->speed;
     character->direction = 2;
   }
   if (IsKeyDown(KEY_UP) || IsKeyDown(KEY_W)){
-    character->position.y -= character->speed;
+    movement.y -= character->speed;
     character->direction = 3;
   }
   if (IsKeyDown(KEY_DOWN) || IsKeyDown(KEY_S)){
-    character->position.y += character->speed;
+    movement.y += character->speed;
     character->direction = 0;
   }
 
-  // Update character position clamping to map boundaries
-  character->position.x = Clamp(character->position.x, 0.0f, map_size.x - character->size.x);
-  character->position.y = Clamp(character->position.y, 0.0f, map_size.y - character->size.y);
+  // Update character position with collision check (Axis by Axis)
+  
+  // Try moving in X axis
+  float next_x = character->position.x + movement.x;
+  next_x = Clamp(next_x, 0.0f, map_size.x - character->size.x);
+  
+  Rectangle collision_rect_x = {next_x + 75, character->position.y + 100, character->size.x - 150, character->size.y - 150};
+  
+  if (!CheckMapCollision(map, collision_rect_x)){
+      character->position.x = next_x;
+  }
+
+  // Try moving in Y axis
+  float next_y = character->position.y + movement.y;
+  next_y = Clamp(next_y, 0.0f, map_size.y - character->size.y);
+  
+  Rectangle collision_rect_y = {character->position.x + 75, next_y + 100, character->size.x - 150, character->size.y - 150};
+  
+  if (!CheckMapCollision(map, collision_rect_y)){
+      character->position.y = next_y;
+  }
 
   // Update character animation frame
   character->frame_counter++;
