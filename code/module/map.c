@@ -6,8 +6,9 @@ Made by Andrew Zhuo.
 
 #define CUTE_TILED_IMPLEMENTATION
 
-#include "map.h"
+#include <stdbool.h>
 #include <stdio.h>
+#include "map.h"
 
 Map InitMap(const char* path){
     /* Initialize the map. */
@@ -83,4 +84,37 @@ void FreeMap(Map* map){
         UnloadTexture(map->textures[i]);
     }
     cute_tiled_free_map(map->tiled_map);
+}
+
+bool CheckMapCollision(Map* map, Rectangle rect){
+    /* Check if a rectangle collides with map objects. */
+    
+    // Loop through the layers
+    cute_tiled_layer_t* layer = map->tiled_map->layers;
+    while (layer){
+        // Only check the object layer
+        if (strcmp(layer->type.ptr, "objectgroup") == 0){
+            // For each object in the layer
+            cute_tiled_object_t* object = layer->objects;
+            while (object){
+                // Tiled objects have x, y, width, height.
+                Rectangle object_rect = {
+                    object->x, 
+                    object->y, 
+                    object->width, 
+                    object->height
+                };
+
+                // Check for collision
+                if (CheckCollisionRecs(rect, object_rect)){
+                    return true;
+                }
+
+                object = object->next;
+            }
+        }
+        layer = layer->next;
+    }
+
+    return false;
 }

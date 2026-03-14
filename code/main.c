@@ -92,7 +92,7 @@ void RunGame(Character* player, Audio* game_audio, Settings* game_settings, Scen
             }
             Vector2 map_size = {(float)game_context->map->tiled_map->width * game_context->map->tiled_map->tilewidth, 
                                 (float)game_context->map->tiled_map->height * game_context->map->tiled_map->tileheight};
-            UpdateCharacter(player, game_settings, map_size);
+            UpdateCharacter(player, game_settings, map_size, game_map);
             UpdateGameContext(game_context, game_settings, map_size);
         }
         
