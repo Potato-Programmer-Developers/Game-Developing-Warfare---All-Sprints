@@ -101,6 +101,8 @@ void RunGame(Character* player, Audio* game_audio, Settings* game_settings, Scen
                 HideCursor();
             }
         } else if (game_state == GAMEPLAY){
+            BeginMode2D(game_context->camera);
+            DrawMap(game_map);
             DrawCharacter(player); 
             DrawTexture(game_scene->vignette, 0, 0, WHITE);
             EndMode2D();
@@ -126,8 +128,8 @@ void RunGame(Character* player, Audio* game_audio, Settings* game_settings, Scen
                 } else if (game_interactive->is_quit_clicked) {
                     break;    // Exit the game.
                 }
-            
-            DrawPauseMenu(game_scene, game_settings, game_interactive);
+                
+                DrawPauseMenu(game_scene, game_settings, game_interactive);
         } else if (game_state == SETTINGS){
             UpdateInteractive(game_interactive, game_settings, &game_state);
             
