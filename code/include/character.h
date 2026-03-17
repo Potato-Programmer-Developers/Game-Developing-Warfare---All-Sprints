@@ -9,7 +9,7 @@ Module made by Andrew Zhuo.
 #define CHARACTER_H
 
 #define MAX_INVENTORY_SIZE 6
-#define MAX_ITEM_NAME_LENGTH 10
+#define MAX_ITEM_NAME_LENGTH 256
 
 #include <stdbool.h>
 #include "settings.h"

@@ -32,7 +32,7 @@ Data LoadData(Settings* game_settings){
     return data;
 }
 
-void ApplyData(Character* player, Settings* game_settings, Data* data){
+void ApplyData(Character* player, Item worldItems[], int itemCount, Settings* game_settings, Data* data){
     /* Apply the data */
     player->position = data->position;
     player->direction = data->direction;
@@ -40,11 +40,17 @@ void ApplyData(Character* player, Settings* game_settings, Data* data){
         strcpy(player->inventory[i], data->inventory[i]);
     }
     player->inventory_count = data->inventory_count;
+
+    // Apply world item states
+    for (int i = 0; i < itemCount; i++){
+        worldItems[i].picked_up = data->picked_up_items[i];
+    }
+
     game_settings->game_volume = data->volume;
     SetMasterVolume(game_settings->game_volume);
 }
 
-void SaveData(Character* player, Settings* game_settings){
+void SaveData(Character* player, Item worldItems[], int itemCount, Settings* game_settings){
     /* Save the data */
     Data data = {0};
     data.position = player->position;
@@ -53,6 +59,12 @@ void SaveData(Character* player, Settings* game_settings){
         strcpy(data.inventory[i], player->inventory[i]);
     }
     data.inventory_count = player->inventory_count;
+
+    // Save world item states
+    for (int i = 0; i < itemCount; i++){
+        data.picked_up_items[i] = worldItems[i].picked_up;
+    }
+
     data.volume = game_settings->game_volume;
     SaveFileData("../data/data.dat", &data, sizeof(Data));
 }
