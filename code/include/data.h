@@ -12,16 +12,17 @@ Made by Andrew Zhuo.
 #include "settings.h"
 
 typedef struct Data{
-    Vector2 position;
-    int direction;
-    char inventory[MAX_INVENTORY_SIZE][MAX_ITEM_NAME_LENGTH];
-    int inventory_count;
+    /* Struct for game data */
+    Vector2 position;                                                // Position of the player
+    int direction;                                                   // Direction the player is facing
+    char inventory[MAX_INVENTORY_SIZE][MAX_ITEM_NAME_LENGTH];        // Inventory of the player
+    int inventory_count;                                             // Number of items in the inventory
 
-    int volume;
+    int volume;                                                      // Volume of the game
 } Data;
 
-Data LoadData(Settings* game_settings);
-void ApplyData(Character* player, Settings* game_settings, Data* data);
-void SaveData(Character* player, Settings* game_settings);
+Data LoadData(Settings* game_settings);                                          // Load game data
+void ApplyData(Character* player, Settings* game_settings, Data* data);          // Apply game data
+void SaveData(Character* player, Settings* game_settings);                       // Save game data
 
 #endif

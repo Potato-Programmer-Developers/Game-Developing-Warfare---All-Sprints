@@ -11,13 +11,12 @@ Module made by Cornelius Jabez Lim.
 #define MAX_LINE_LENGTH 256
 
 typedef struct {
-    char lines[MAX_DIALOGUE_LINES][MAX_LINE_LENGTH];
-    int line_count;
-    int current_line;
+    /* Struct for dialogue */
+    char lines[MAX_DIALOGUE_LINES][MAX_LINE_LENGTH];          // Array of dialogue lines
+    int line_count;                                           // Number of dialogue lines
+    int current_line;                                         // Current dialogue line
 } Dialogue;
 
-Dialogue LoadDialogue(const char* filename);
-void UnloadDialogue(Dialogue* dialogue);
-void NextDialogueLine(Dialogue* dialogue);
+Dialogue LoadDialogue(const char* filename);                  // Load dialogue from a file
 
 #endif

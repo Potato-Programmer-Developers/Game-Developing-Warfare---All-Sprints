@@ -23,28 +23,19 @@ Dialogue LoadDialogue(const char* filename)
 
     while (fgets(dialogue.lines[dialogue.line_count], MAX_LINE_LENGTH, file))
     {
-        // remove newline
+        // Remove newline character
         dialogue.lines[dialogue.line_count][strcspn(dialogue.lines[dialogue.line_count], "\n")] = 0;
         dialogue.line_count++;
 
+        // Stop if we reach the maximum number of lines
         if (dialogue.line_count >= MAX_DIALOGUE_LINES)
             break;
     }
 
     fclose(file);
 
+    // Start at the first line
+    dialogue.current_line = 0;
+
     return dialogue;
-}
-
-void NextDialogueLine(Dialogue* dialogue)
-{
-    if (dialogue->current_line < dialogue->line_count - 1)
-    {
-        dialogue->current_line++;
-    }
-}
-
-void UnloadDialogue(Dialogue* dialogue) {
-    dialogue->line_count = 0;
-    dialogue->current_line = 0;
 }
