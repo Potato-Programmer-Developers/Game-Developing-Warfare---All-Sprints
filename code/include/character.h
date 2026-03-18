@@ -8,7 +8,7 @@ Module made by Andrew Zhuo.
 #ifndef CHARACTER_H
 #define CHARACTER_H
 
-#define MAX_INVENTORY_SIZE 6
+#define MAX_INVENTORY_SIZE 100
 #define MAX_ITEM_NAME_LENGTH 256
 
 #include <stdbool.h>
@@ -40,6 +40,7 @@ typedef struct Character{
     bool exhausted;                                                      // Whether the character is too tired to run
     bool needs_shift_reset;                                              // Whether the user must release Shift before running again
     char inventory[MAX_INVENTORY_SIZE][MAX_ITEM_NAME_LENGTH];            // Inventory of the character
+    int item_count[MAX_INVENTORY_SIZE];                                  // Number of each item in the inventory
     int inventory_count;                                                 // Number of items in the inventory
 } Character;
 

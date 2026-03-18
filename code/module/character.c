@@ -11,7 +11,6 @@ Module made by Andrew Zhuo.
 #include "settings.h"
 #include "map.h"
 #include "data.h"
-#include <stdio.h>
 
 Character InitCharacter(Settings *game_settings, Data *game_data){
   /* Initialize the character. */

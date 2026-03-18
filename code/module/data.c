@@ -38,6 +38,7 @@ void ApplyData(Character* player, Item worldItems[], int itemCount, Settings* ga
     player->direction = data->direction;
     for (int i = 0; i < data->inventory_count; i++){
         strcpy(player->inventory[i], data->inventory[i]);
+        player->item_count[i] = data->item_count[i];
     }
     player->inventory_count = data->inventory_count;
 
@@ -57,6 +58,7 @@ void SaveData(Character* player, Item worldItems[], int itemCount, Settings* gam
     data.direction = player->direction;
     for (int i = 0; i < player->inventory_count; i++){
         strcpy(data.inventory[i], player->inventory[i]);
+        data.item_count[i] = player->item_count[i];
     }
     data.inventory_count = player->inventory_count;
 

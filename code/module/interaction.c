@@ -86,6 +86,7 @@ void InteractWithNPC(NPC *npc, Dialogue *game_dialogue, GameState *game_state){
 void InteractWithItem(Item *item, Character *player){
     /* Handle interaction with items. */
     strcpy(player->inventory[player->inventory_count], item->base.texturePath);
+    player->item_count[player->inventory_count]++;
     player->inventory_count++;
     item->picked_up = true;
 }

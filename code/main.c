@@ -31,7 +31,7 @@ void EndGame(Audio *game_audio, Character *player, Item worldItems[], int itemCo
              Interactive *game_interactive, Map *game_map,
              Settings *game_settings);
 
-int main(void) {
+int main(void){
   /* Initialize the game */
 
   // Initialize the settings and game.
