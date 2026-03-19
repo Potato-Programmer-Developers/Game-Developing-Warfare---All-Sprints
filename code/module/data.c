@@ -76,5 +76,12 @@ void SaveData(Character* player, Item worldItems[], int itemCount, Settings* gam
 
     // Save game settings
     data.volume = game_settings->game_volume;
+
+    // Create data directory if it doesn't exist
+    if (!DirectoryExists("../data")){
+        MakeDirectory("../data");
+    }
+
+    // Save the data
     SaveFileData("../data/data.dat", &data, sizeof(Data));
 }
