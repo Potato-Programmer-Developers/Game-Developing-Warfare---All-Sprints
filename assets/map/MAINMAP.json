@@ -120,7 +120,7 @@
          "name":"COLLISIONS",
          "opacity":1,
          "type":"tilelayer",
-         "visible":false,
+         "visible":true,
          "width":40,
          "x":0,
          "y":0
@@ -161,7 +161,7 @@
          "name":"COLLISIONS 2",
          "opacity":1,
          "type":"tilelayer",
-         "visible":false,
+         "visible":true,
          "width":40,
          "x":0,
          "y":0
@@ -202,7 +202,7 @@
          "name":"Roof",
          "opacity":1,
          "type":"tilelayer",
-         "visible":false,
+         "visible":true,
          "width":40,
          "x":0,
          "y":0
@@ -393,54 +393,217 @@
                  "y":284
                 }, 
                 {
-                 "height":0,
-                 "id":37,
+                 "height":16.5079365079365,
+                 "id":41,
                  "name":"",
                  "opacity":1,
-                 "polygon":[
-                        {
-                         "x":0,
-                         "y":0
-                        }, 
-                        {
-                         "x":251.663641863279,
-                         "y":-89.0502117362371
-                        }, 
-                        {
-                         "x":557.531760435572,
-                         "y":-383.303085299456
-                        }, 
-                        {
-                         "x":696.914700544464,
-                         "y":-247.791893526921
-                        }, 
-                        {
-                         "x":855.656382335148,
-                         "y":-251.663641863279
-                        }, 
-                        {
-                         "x":851.78463399879,
-                         "y":-85.178463399879
-                        }, 
-                        {
-                         "x":948.578342407744,
-                         "y":0
-                        }],
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":863.492063492063,
+                 "x":1507.30158730159,
+                 "y":938.412698412698
+                }, 
+                {
+                 "height":16.5079365079365,
+                 "id":42,
+                 "name":"",
+                 "opacity":1,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":769.523809523809,
+                 "x":1570.79365079365,
+                 "y":920.63492063492
+                }, 
+                {
+                 "height":21.5873015873016,
+                 "id":43,
+                 "name":"",
+                 "opacity":1,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":706.031746031746,
+                 "x":1616.50793650794,
+                 "y":897.777777777778
+                }, 
+                {
+                 "height":0,
+                 "id":44,
+                 "name":"",
+                 "opacity":1,
                  "rotation":0,
                  "type":"",
                  "visible":true,
                  "width":0,
-                 "x":1451.9056261343,
-                 "y":964.065335753176
+                 "x":2491.42857142857,
+                 "y":924.444444444444
+                }, 
+                {
+                 "height":13.968253968254,
+                 "id":45,
+                 "name":"",
+                 "opacity":1,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":628.571428571428,
+                 "x":1672.38095238095,
+                 "y":882.539682539683
+                }, 
+                {
+                 "height":22.8571428571429,
+                 "id":46,
+                 "name":"",
+                 "opacity":1,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":576.507936507936,
+                 "x":1720.63492063492,
+                 "y":858.412698412698
+                }, 
+                {
+                 "height":27.936507936508,
+                 "id":47,
+                 "name":"",
+                 "opacity":1,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":560,
+                 "x":1746.03174603175,
+                 "y":826.666666666667
+                }, 
+                {
+                 "height":27.936507936508,
+                 "id":48,
+                 "name":"",
+                 "opacity":1,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":533.333333333333,
+                 "x":1772.69841269841,
+                 "y":797.460317460317
+                }, 
+                {
+                 "height":21.5873015873017,
+                 "id":49,
+                 "name":"",
+                 "opacity":1,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":500.31746031746,
+                 "x":1806.98412698413,
+                 "y":773.333333333333
+                }, 
+                {
+                 "height":33.015873015873,
+                 "id":50,
+                 "name":"",
+                 "opacity":1,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":460.952380952381,
+                 "x":1845.07936507937,
+                 "y":739.047619047619
+                }, 
+                {
+                 "height":26.6666666666666,
+                 "id":51,
+                 "name":"",
+                 "opacity":1,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":439.36507936508,
+                 "x":1866.66666666667,
+                 "y":709.84126984127
+                }, 
+                {
+                 "height":29.2063492063493,
+                 "id":52,
+                 "name":"",
+                 "opacity":1,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":212.063492063492,
+                 "x":1899.68253968254,
+                 "y":679.365079365079
+                }, 
+                {
+                 "height":26.6666666666666,
+                 "id":53,
+                 "name":"",
+                 "opacity":1,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":154.920634920635,
+                 "x":1933.96825396825,
+                 "y":651.428571428571
+                }, 
+                {
+                 "height":22.8571428571429,
+                 "id":54,
+                 "name":"",
+                 "opacity":1,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":110.47619047619,
+                 "x":1954.28571428571,
+                 "y":631.111111111111
+                }, 
+                {
+                 "height":25.3968253968254,
+                 "id":55,
+                 "name":"",
+                 "opacity":1,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":34.2857142857142,
+                 "x":2005.07936507937,
+                 "y":605.714285714286
+                }, 
+                {
+                 "height":24.1269841269841,
+                 "id":56,
+                 "name":"",
+                 "opacity":1,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":30.4761904761904,
+                 "x":1973.33333333333,
+                 "y":605.714285714286
+                }, 
+                {
+                 "height":14.3313139209172,
+                 "id":57,
+                 "name":"",
+                 "opacity":1,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":51.4624454432937,
+                 "x":1982.93270796691,
+                 "y":590.189564197772
                 }],
          "opacity":1,
          "type":"objectgroup",
-         "visible":false,
+         "visible":true,
          "x":0,
          "y":0
         }],
  "nextlayerid":7,
- "nextobjectid":41,
+ "nextobjectid":58,
  "orientation":"orthogonal",
  "renderorder":"right-down",
  "tiledversion":"1.12.0",
