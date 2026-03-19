@@ -47,7 +47,7 @@ int main(void){
     Scene game_scene = InitScene(&game_settings);
     Interactive game_interactive = InitInteractive(&game_settings);
     Dialogue game_dialogue = LoadDialogue("../assets/text/dialogue1.txt");
-    Map game_map = InitMap("../assets/map/map.json");
+    Map game_map = InitMap("../assets/map/MAINMAP.json");
     NPC worldNPCs[2] = {
         {{{0}, "../assets/images/character/furina.png", {150, 200, 100, 100}, false, INTERACTABLE_TYPE_NPC}, "../assets/text/signpost.txt"},
         {{{0}, "../assets/images/character/oldman.png", {600, 300, 80, 80}, false, INTERACTABLE_TYPE_NPC}, "../assets/text/oldman.txt"},

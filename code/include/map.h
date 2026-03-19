@@ -11,7 +11,7 @@ Module made by Andrew Zhuo.
 #include "cute_tiled.h"
 #include "raylib.h"
 
-#define MAX_TILESETS 10
+#define MAX_TILESETS 20
 
 typedef struct Map{
     /* The tiled map. */

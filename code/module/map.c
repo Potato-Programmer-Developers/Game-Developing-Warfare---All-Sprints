@@ -40,8 +40,9 @@ void DrawMap(Map* map){
         if (strcmp(layer->type.ptr, "tilelayer") == 0){
             // For each tile in the layer
             for (int i = 0; i < layer->data_count; i++){
-                // Get the tile ID
-                int gid = layer->data[i];
+                // Get the raw tile ID and split the flags
+                unsigned int raw_gid = (unsigned int)layer->data[i];
+                int gid = cute_tiled_unset_flags(raw_gid);
 
                 // Skip if the tile ID is 0
                 if (gid == 0) continue;
@@ -65,12 +66,46 @@ void DrawMap(Map* map){
                     int x = i % layer->width;
                     int y = i / layer->width;
 
-                    DrawTextureRec(
-                        map->textures[tileset_idx],
-                        (Rectangle){tx, ty, tileset->tilewidth, tileset->tileheight},
-                        (Vector2){x * tileset->tilewidth, y * tileset->tileheight},
-                        WHITE
-                    );
+                    bool flip_h = (raw_gid & CUTE_TILED_FLIPPED_HORIZONTALLY_FLAG) != 0;
+                    bool flip_v = (raw_gid & CUTE_TILED_FLIPPED_VERTICALLY_FLAG) != 0;
+                    bool flip_d = (raw_gid & CUTE_TILED_FLIPPED_DIAGONALLY_FLAG) != 0;
+
+                    float rotation = 0.0f;
+
+                    if (flip_d){
+                        if (flip_h && flip_v){
+                            rotation = 90.0f;
+                            flip_h = true;
+                            flip_v = false;
+                        } else if (flip_h){
+                            rotation = 90.0f;
+                            flip_h = false;
+                            flip_v = false;
+                        } else if (flip_v){
+                            rotation = -90.0f;
+                            flip_h = false;
+                            flip_v = false;
+                        } else{
+                            rotation = 90.0f;
+                            flip_h = false;
+                            flip_v = true;
+                        }
+                    }
+
+                    Rectangle source = {(float)tx, (float)ty, (float)tileset->tilewidth, (float)tileset->tileheight};
+                    if (flip_h) source.width = -source.width;
+                    if (flip_v) source.height = -source.height;
+
+                    Rectangle dest = {
+                        (float)(x * tileset->tilewidth) + tileset->tilewidth / 2.0f,
+                        (float)(y * tileset->tileheight) + tileset->tileheight / 2.0f,
+                        (float)tileset->tilewidth,
+                        (float)tileset->tileheight
+                    };
+
+                    Vector2 origin = {tileset->tilewidth / 2.0f, tileset->tileheight / 2.0f};
+
+                    DrawTexturePro(map->textures[tileset_idx], source, dest, origin, rotation, WHITE);
                 }
             }
         }
