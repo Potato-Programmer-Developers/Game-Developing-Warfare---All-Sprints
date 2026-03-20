@@ -17,7 +17,6 @@ Module made by Andrew Zhuo and Steven Kenneth Darwy.
 typedef struct Scene{
     /* This struct contains the information for the scene in the game. */
     Texture2D mainmenu_background;                  // The background texture for the main menu.
-    Texture2D game_background;                      // The background texture for the game scene.
     Texture2D pause_menu_background;                // The background texture for the pause menu.
     Texture2D settings_background;                  // The background texture for the settings menu.
     Texture2D vignette;                             // The vignette texture for the game scene.

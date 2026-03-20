@@ -17,12 +17,12 @@ int UpdateGame(GameState* game_state, Interactive* game_interactive,
             UpdateInteractive(game_interactive, game_settings);
             if (game_interactive->is_play_clicked){
                 *game_state = PHOTO_CUTSCENE;
-                StopMusicStream(game_audio->bg_music);
+                game_interactive->is_play_clicked = false;
+                PauseMusicStream(game_audio->bg_music);
                 PlayMusicStream(game_audio->cutscene_music);
                 SetTargetFPS(30);
-                game_scene->current_cutscene_frame = 1;
+                game_scene->current_cutscene_frame = 0;
                 game_scene->cutscene_timer = 0.0f;
-                LoadCutsceneFrame(game_scene, game_scene->current_cutscene_frame, game_settings);
             }
             if (game_interactive->is_settings_clicked){
                 *game_state = SETTINGS;
@@ -57,7 +57,12 @@ int UpdateGame(GameState* game_state, Interactive* game_interactive,
         case PAUSE:
             UpdateInteractive(game_interactive, game_settings);
             if (game_interactive->is_play_clicked){
-                *game_state = GAMEPLAY;
+                if (game_context->previous_state == PHOTO_CUTSCENE) {
+                    PauseMusicStream(game_audio->bg_music);
+                    ResumeMusicStream(game_audio->cutscene_music);
+                }
+                *game_state = game_context->previous_state;
+                game_interactive->is_play_clicked = false;
             }
             if (game_interactive->is_settings_clicked){
                 *game_state = SETTINGS;
@@ -99,9 +104,9 @@ int UpdateGame(GameState* game_state, Interactive* game_interactive,
                 last_enter_press = current_time;
             }
 
-            // Load the next cutscene frame if the current frame is not the last frame
-            game_scene->current_cutscene_frame++;
-            if (game_scene->current_cutscene_frame <= 5757){
+            // Update cutscene frame
+            if (game_scene->current_cutscene_frame < 896){
+                game_scene->current_cutscene_frame++;
                 LoadCutsceneFrame(game_scene, game_scene->current_cutscene_frame, game_settings);
             } else{
                 StopMusicStream(game_audio->cutscene_music);
@@ -109,6 +114,7 @@ int UpdateGame(GameState* game_state, Interactive* game_interactive,
                 SetTargetFPS(60);
                 ClearCutscene(game_scene);
                 *game_state = GAMEPLAY;
+                game_scene->current_cutscene_frame = 0;      // Reset for next time
             }
             break;
         default:

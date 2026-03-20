@@ -38,7 +38,7 @@ void CheckInteractable(NPC worldNPCs[], Item worldItems[], int npcCount, int ite
             float dist = Vector2Distance(playerPos, npcPos);
             if (dist < min_dist){
                 min_dist = dist;
-                *objectToInteractWith = &worldNPCs[i].base;
+                *objectToInteractWith = (Interactable*)&worldNPCs[i];
             }
         } else{
             worldNPCs[i].base.isActive = false;
@@ -54,7 +54,7 @@ void CheckInteractable(NPC worldNPCs[], Item worldItems[], int npcCount, int ite
             float dist = Vector2Distance(playerPos, itemPos);
             if (dist < min_dist){
                 min_dist = dist;
-                *objectToInteractWith = &worldItems[i].base;
+                *objectToInteractWith = (Interactable*)&worldItems[i];
             }
         } else{
             worldItems[i].base.isActive = false;

@@ -211,7 +211,7 @@ void LoadCutsceneFrame(Scene *scene, int frame_index, Settings *game_settings){
     
     // Load the current cutscene frame
     char path[100];
-    sprintf(path, "../assets/videos/cutscene/frame%05d.qoi", frame_index);
+    sprintf(path, "../assets/videos/cutscene/frame%04d.qoi", frame_index);
     scene->current_cutscene_frame_texture = LoadTexture(path);
 }
 
@@ -226,7 +226,6 @@ void ClearCutscene(Scene* scene){
 void CloseScene(Scene* scene){
     /* Unload all scene textures. */
     UnloadTexture(scene->mainmenu_background);
-    UnloadTexture(scene->game_background);
     UnloadTexture(scene->pause_menu_background);
     UnloadTexture(scene->settings_background);
     UnloadTexture(scene->vignette);

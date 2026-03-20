@@ -109,8 +109,21 @@ void RunGame(Character *player, Audio *game_audio, Settings *game_settings,
         CheckInteractable(worldNPCs, worldItems, 2, 1, playerHitbox, &objectToInteractWith);
 
         // Toggle pause state
-        if (IsKeyPressed(KEY_ESCAPE) && (*game_state == GAMEPLAY || *game_state == PAUSE)) {
-            *game_state = (*game_state == PAUSE) ? GAMEPLAY : PAUSE;
+        if (IsKeyPressed(KEY_ESCAPE)){
+            if (*game_state == PAUSE){
+                if (game_context->previous_state == PHOTO_CUTSCENE) {
+                    PauseMusicStream(game_audio->bg_music);
+                    ResumeMusicStream(game_audio->cutscene_music);
+                }
+                *game_state = game_context->previous_state;
+            } else if (*game_state == GAMEPLAY || *game_state == PHOTO_CUTSCENE){
+                if (*game_state == PHOTO_CUTSCENE) {
+                    PauseMusicStream(game_audio->cutscene_music);
+                    ResumeMusicStream(game_audio->bg_music);
+                }
+                game_context->previous_state = *game_state;
+                *game_state = PAUSE;
+            }
         }
 
         // Handle interaction

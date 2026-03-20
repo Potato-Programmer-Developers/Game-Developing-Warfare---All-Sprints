@@ -21,7 +21,6 @@ typedef enum {
   GAMEPLAY,          // Gameplay state
   PAUSE,             // Pause state
   SETTINGS,          // Settings state
-  GAMEOVER,          // Game over state
   DIALOGUE_CUTSCENE, // Dialogue cutscene state
   PHOTO_CUTSCENE     // Photo cutscene state
 } GameState;
