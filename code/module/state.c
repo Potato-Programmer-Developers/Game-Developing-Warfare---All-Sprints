@@ -121,6 +121,7 @@ int UpdateGame(GameState* game_state, Interactive* game_interactive, Character* 
                 game_interactive->is_continue_clicked = false;
             } else if (game_interactive->is_settings_clicked){
                 game_context->settings_previous_state = *game_state;
+                SetTargetFPS(24);
                 *game_state = SETTINGS;
             } else if (game_interactive->is_main_menu_clicked){
                 SaveData(player, worldItems, worldItemsCount, game_settings);
@@ -147,6 +148,9 @@ int UpdateGame(GameState* game_state, Interactive* game_interactive, Character* 
             // --- Settings Adjustment ---
             UpdateInteractive(game_interactive, game_settings);
             if (game_interactive->is_settings_back_clicked){
+                if (game_context->settings_previous_state == PAUSE) {
+                    SetTargetFPS(60);
+                }
                 *game_state = game_context->settings_previous_state;
                 UpdateInteractiveLayout(game_interactive, *game_state, game_settings);
             }
