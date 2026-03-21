@@ -29,6 +29,7 @@ typedef struct GameContext {
     bool is_outdoor;           // Environment flag for hallucination effects
     Phone phone;               // Mobile phone notification sub-system
     int previous_state;        // State cache for returning from Pause/Settings
+    int settings_previous_state; // State cache explicitly for returning from Settings
 } GameContext;
 
 /** @brief Allocates and connects core systems into the context. */

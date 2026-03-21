@@ -34,6 +34,7 @@ GameContext InitGameContext(Map *map, Character *player, Settings *settings) {
   game_context.map = map;
   game_context.player = player;
   game_context.is_outdoor = true;
+  game_context.settings_previous_state = 0; // Default to MAINMENU
 
   // Sub-system initialization
   InitPhone(&game_context.phone);
