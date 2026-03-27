@@ -1,105 +1,151 @@
-/**
- * @file interaction.h
- * @brief Systems for player interaction with NPCs and items.
- * 
- * This module defines the base interactable structure and its derivatives
- * (NPCs, Items), along with logic for collision detection and triggering interactions.
- * 
- * Authors: Andrew Zhuo and Cornelius Jabez Lim
- */
-
 #ifndef INTERACTION_H
 #define INTERACTION_H
 
 #include <stdbool.h>
 #include "dialogue.h"
 #include "raylib.h"
-#include "state.h"
 #include "character.h"
+#include "state.h"
+#include "map.h"
+
+// Forward declaration of GameContext to avoid circular dependency
+struct GameContext;
 
 /**
  * @brief Categorizes the type of interactable object.
  */
 typedef enum {
     INTERACTABLE_TYPE_NPC,   // Non-player characters with dialogue
-    INTERACTABLE_TYPE_ITEM,  // Collectible world items
+    INTERACTABLE_TYPE_ITEM,  // Collectible or inspectable world items
+    INTERACTABLE_TYPE_DOOR,  // Map transition triggers
 } InteractableType;
 
 /**
  * @brief Base structure for all objects the player can interact with.
  */
 typedef struct {
-    Texture2D texture;             // Visual representation of the object
-    const char* texturePath;       // Path to the texture file
+    Texture2D texture;             // Visual representation of the object (loaded at runtime)
+    char texturePath[128];         // FS Path to the texture
+    char interactable_id[64];      // Unique ID for story triggers (e.g. "fridge")
     Rectangle bounds;              // World boundaries for interaction checks
-    bool isActive;                 // Whether the object is currently visible/active
+    bool isActive;                 // Whether the object is within collision range
     InteractableType type;         // Discriminator for NPC vs Item logic
+    char dialoguePath[128];        // Path to the script or response file
 } Interactable;
 
 /**
  * @brief Specialized interactable for talking to characters.
  */
-typedef struct {
+typedef struct NPC {
     Interactable base;             // Base interactable properties
-    const char* dialoguePath;      // Path to the text file containing NPC dialogue
 } NPC;
 
 /**
- * @brief Specialized interactable for picking up items.
+ * @brief Specialized interactable for world items.
  */
 typedef struct Item {
     Interactable base;             // Base interactable properties
-    bool picked_up;                // Persistence flag: true if inventory has absorbed this item
+    bool picked_up;                // Persistence flag for collectibles
+    bool is_pickup;                // If true, adds to inventory. If false, just shows text.
 } Item;
 
 /**
+ * @brief Specialized interactable for moving between maps.
+ */
+typedef struct Door {
+    Interactable base;             // Base interactable properties
+    char targetMapPath[128];       // FS path to the destination .json map
+    Location targetLocation;       // Destination location type
+} Door;
+
+/**
  * @brief Loads visual assets for a collection of NPCs.
- * @param npcs Array of NPC structures.
- * @param count Number of NPCs in the array.
  */
 void LoadNPCs(NPC npcs[], int count);
 
 /**
  * @brief Loads visual assets for a collection of world items.
- * @param items Array of Item structures.
- * @param count Number of items in the array.
  */
 void LoadItems(Item items[], int count);
 
 /**
+ * @brief Unloads visual assets for an array of NPCs.
+ * 
+ * @param npcs Array of NPCs to unload assets for.
+ * @param count Number of NPCs to unload assets for.
+ */
+void UnloadNPCs(NPC npcs[], int count);
+
+/**
+ * @brief Unloads visual assets for an array of items.
+ * 
+ * @param items Array of items to unload assets for.
+ * @param count Number of items to unload assets for.
+ */
+void UnloadItems(Item items[], int count);
+
+/**
  * @brief Detects if the player is within interaction range of any world object.
- * @param worldNPCs Array of NPCs to check.
- * @param worldItems Array of Items to check.
- * @param npcCount Number of NPCs.
- * @param itemCount Number of items.
- * @param playerHitbox Rectangle representing the player's interaction reach.
- * @param objectToInteractWith Pointer to update with the identified target.
+ * 
+ * @param worldNPCs Array of NPCs to check for interaction.
+ * @param worldItems Array of items to check for interaction.
+ * @param worldDoors Array of doors to check for interaction.
+ * @param npcCount Number of NPCs to check for interaction.
+ * @param itemCount Number of items to check for interaction.
+ * @param doorCount Number of doors to check for interaction.
+ * @param playerHitbox Player's hitbox.
+ * @param objectToInteractWith Pointer to the object to interact with.
  */
 void CheckInteractable(
-    NPC worldNPCs[], Item worldItems[], int npcCount, int itemCount,
+    NPC worldNPCs[], Item worldItems[], Door worldDoors[],
+    int npcCount, int itemCount, int doorCount,
     Rectangle playerHitbox, Interactable** objectToInteractWith
 );
 
 /**
  * @brief High-level dispatcher for triggering an interaction.
- * @param objectToInteractWith The target object identified by the check function.
- * @param game_dialogue Pointer to the global dialogue state.
- * @param game_state Pointer to the current game state (to switch to dialogue mode).
- * @param player Pointer to character (for inventory updates).
+ * 
+ * @param objectToInteractWith Pointer to the object to interact with.
+ * @param game_dialogue Pointer to the dialogue system.
+ * @param game_state Pointer to the game state.
+ * @param player Pointer to the player.
+ * @param map Pointer to the map.
+ * @param game_context Pointer to the game context.
  */
 void InteractWithObject(
     Interactable* objectToInteractWith, Dialogue* game_dialogue,
-    GameState* game_state, Character *player
+    GameState* game_state, Character *player, Map *map, struct GameContext *game_context
 );
 
 /**
- * @brief Internal handler for NPC interaction (starts dialogue).
+ * @brief Internal handler for Door interaction (swaps the active map).
+ * 
+ * @param door Pointer to the door to interact with.
+ * @param map Pointer to the map.
+ * @param player Pointer to the player.
+ * @param game_context Pointer to the game context. 
  */
-void InteractWithNPC(NPC *npc, Dialogue *game_dialogue, GameState *game_state);
+void InteractWithDoor(Door *door, Map *map, Character *player, struct GameContext *game_context);
 
 /**
- * @brief Internal handler for Item interaction (adds to inventory).
+ * @brief Internal handler for NPC interaction (starts dialogue).
+ * 
+ * @param npc Pointer to the NPC to interact with.
+ * @param game_dialogue Pointer to the dialogue system.
+ * @param game_state Pointer to the game state.
+ * @param game_context Pointer to the game context.
  */
-void InteractWithItem(Item *item, Character *player);
+void InteractWithNPC(NPC *npc, Dialogue *game_dialogue, GameState *game_state, struct GameContext *game_context);
+
+/**
+ * @brief Internal handler for Item interaction (adds to inventory or shows text).
+ * 
+ * @param item Pointer to the item to interact with.
+ * @param game_dialogue Pointer to the dialogue system.
+ * @param game_state Pointer to the game state.
+ * @param player Pointer to the player.
+ * @param game_context Pointer to the game context.
+ */
+void InteractWithItem(Item *item, Dialogue *game_dialogue, GameState *game_state, Character *player, struct GameContext *game_context);
 
 #endif

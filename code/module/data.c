@@ -63,7 +63,7 @@ void ApplyData(Character* player, Item worldItems[], int itemCount, Settings* ga
         player->item_count[i] = data->item_count[i];
     }
     player->inventory_count = data->inventory_count;
-    player->hallucination = data->player_hallucination_level;
+    player->sanity = data->player_sanity_level;
 
     // 2. Sync World State (which items are gone)
     for (int i = 0; i < itemCount; i++){
@@ -89,7 +89,7 @@ void SaveData(Character* player, Item worldItems[], int itemCount, Settings* gam
         data.item_count[i] = player->item_count[i];
     }
     data.inventory_count = player->inventory_count;
-    data.player_hallucination_level = player->hallucination;
+    data.player_sanity_level = player->sanity;
 
     // 2. Harvest World State
     for (int i = 0; i < itemCount; i++){
@@ -112,10 +112,10 @@ void SaveData(Character* player, Item worldItems[], int itemCount, Settings* gam
 /**
  * @brief Hard reset of local object state (New Game logic).
  */
-void ResetGameData(Character* player, Item worldItems[], int itemCount){
-    player->position = (Vector2){ 450.0f, 1200.0f };
+void ResetGameData(Character* player, Item worldItems[], int itemCount, Vector2 default_spawn){
+    player->position = default_spawn;
     player->inventory_count = 0;
-    player->hallucination = 0.0f;
+    player->sanity = 0.0f;
     player->direction = 0;
     
     for (int i = 0; i < itemCount; i++){
@@ -126,12 +126,13 @@ void ResetGameData(Character* player, Item worldItems[], int itemCount){
 /**
  * @brief High-level orchestrator for data handling during startup.
  */
-void HandleGameData(Character* player, Item worldItems[], int itemCount, Settings* game_settings){
+void HandleGameData(Character* player, Item worldItems[], int itemCount, Settings* game_settings, Map* game_map){
     Data data = LoadData(game_settings);
     
     // If no position is found, we assume it's a fresh start or corrupted file
     if (data.position.x == -1.0f){
-        ResetGameData(player, worldItems, itemCount);
+        Vector2 spawn = game_map->spawn_position;
+        ResetGameData(player, worldItems, itemCount, spawn);
     } else {
         ApplyData(player, worldItems, itemCount, game_settings, &data);
     }

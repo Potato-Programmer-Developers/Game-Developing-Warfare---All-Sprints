@@ -28,7 +28,7 @@ typedef struct Data {
     char inventory[MAX_INVENTORY_SIZE][MAX_ITEM_NAME_LENGTH];        // List of item names in inventory
     int item_count[MAX_INVENTORY_SIZE];                              // Quantities for each inventory item
     int inventory_count;                                             // Total number of unique items
-    float player_hallucination_level;                                // Current hallucination intensity
+    float player_sanity_level;                                       // Current hallucination intensity
 
     // --- World State ---
     bool picked_up_items[1];                                         // Tracking which items have been removed from the world
@@ -69,7 +69,7 @@ void SaveData(Character* player, Item worldItems[], int itemCount, Settings* gam
  * @param worldItems Array of world items.
  * @param itemCount Number of items in the array.
  */
-void ResetGameData(Character* player, Item worldItems[], int itemCount);
+void ResetGameData(Character* player, Item worldItems[], int itemCount, Vector2 default_spawn);
 
 /**
  * @brief High-level wrapper to load data and immediately apply it to the game.
@@ -78,6 +78,6 @@ void ResetGameData(Character* player, Item worldItems[], int itemCount);
  * @param itemCount Number of items.
  * @param game_settings Pointer to settings.
  */
-void HandleGameData(Character* player, Item worldItems[], int itemCount, Settings* game_settings);
+void HandleGameData(Character* player, Item worldItems[], int itemCount, Settings* game_settings, Map* game_map);
 
 #endif

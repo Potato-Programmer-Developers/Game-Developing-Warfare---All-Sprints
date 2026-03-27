@@ -13,12 +13,10 @@
 
 #include "raylib.h"
 #include "settings.h"
+#include "map.h"
 
 /**
  * @brief Container for all audio resources used in the game.
- * 
- * This structure holds Raylib Music and Sound objects, allowing centralized
- * management of all game audio.
  */
 typedef struct Audio {
     Music bg_music;             // Main background music stream
@@ -58,9 +56,9 @@ void PlayScream(Audio* audio);
 /**
  * @brief Plays a footstep sound based on the player's environment.
  * @param audio Pointer to the audio container.
- * @param is_outdoor True to play outdoor sound, false for indoor.
+ * @param location Current character location.
  */
-void PlayStep(Audio* audio, bool is_outdoor);
+void PlayStep(Audio* audio, Location location);
 
 /**
  * @brief Plays the notification sound effect.

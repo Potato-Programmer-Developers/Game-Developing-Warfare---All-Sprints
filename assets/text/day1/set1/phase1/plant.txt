@@ -1,0 +1,2 @@
+[RESPONSE] It's a plant.
+[RESPONSE] When was the last time you watered it?

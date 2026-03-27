@@ -17,9 +17,12 @@
 #include <stdbool.h>
 #include "settings.h"
 #include "audio.h"
+#include "map.h"
+#include "quest.h"
 
 typedef struct Map Map;
 typedef struct Data Data;
+typedef struct StorySystem StorySystem;
 
 /**
  * @brief Represents the player character and all associated state.
@@ -46,8 +49,8 @@ typedef struct Character {
     // --- Gameplay Mechanics ---
     float stamina;                       // Current energy for running
     float max_stamina;                   // Maximum energy capacity
-    float hallucination;                 // Current hallucination level (horror mechanic)
-    float max_hallucination;             // Maximum hallucination threshold
+    float sanity;                        // Current sanity level (horror mechanic)
+    float max_sanity;                    // Maximum sanity threshold
     bool exhausted;                      // Flag set when stamina reaches 0, preventing run
     bool needs_shift_reset;              // Mechanic requiring Shift key release after exhaustion
 
@@ -73,9 +76,10 @@ Character InitCharacter(Settings* game_settings, Data* game_data, Map* game_map)
  * @param map_size Total dimensions of the world for clamping.
  * @param map Pointer to map for collision detection.
  * @param audio Pointer to audio system for footstep sounds.
- * @param is_outdoor Flag to determine which footstep sounds to play.
+ * @param location Current character location for footstep sounds.
+ * @param quest_system Pointer to the quest system for tutorial progress.
  */
-void UpdateCharacter(Character* character, Settings* game_settings, Vector2 map_size, Map* map, Audio* audio, bool is_outdoor);
+void UpdateCharacter(Character* character, Settings* game_settings, Vector2 map_size, Map* map, Audio* audio, Location location, StorySystem* story);
 
 /**
  * @brief Unloads all character textures and frees resources.

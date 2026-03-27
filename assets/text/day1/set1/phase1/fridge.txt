@@ -1,0 +1,6 @@
+[CHOICE1] Open the freezer
+    [RESPONSE] There's no food here.
+    [RESPONSE] You need to get a better job.
+    [RESPONSE] 2 cans of beer.
+[CHOICE2] Look at the picture
+    [RESPONSE] END SET1-PHASE2

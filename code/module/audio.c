@@ -93,12 +93,12 @@ void PlayNotif(Audio* audio){
  * @brief Context-aware footstep sound playback.
  * 
  * @param audio Pointer to the audio system.
- * @param is_outdoor Flag to select between different footstep textures.
+ * @param location Current character location for footstep sound effect.
  */
-void PlayStep(Audio* audio, bool is_outdoor){
-    if (!IsSoundPlaying(audio->step_outdoor) && is_outdoor){
+void PlayStep(Audio* audio, Location location){
+    if (!IsSoundPlaying(audio->step_outdoor) && location == EXTERIOR){
         PlaySound(audio->step_outdoor);
-    } else if (!IsSoundPlaying(audio->step_indoor) && !is_outdoor){
+    } else if (!IsSoundPlaying(audio->step_indoor) && location != EXTERIOR){
         PlaySound(audio->step_indoor);
     }
 }

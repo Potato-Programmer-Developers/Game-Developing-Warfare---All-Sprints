@@ -1,41 +1,60 @@
-/**
- * @file game_context.h
- * @brief Master context for managing global game systems and state.
- * 
- * Provides a central registry for the player, map, camera, and peripheral 
- * systems like the phone. Essential for cross-module accessibility.
- * 
- * Authors: Andrew Zhuo
- */
-
 #ifndef GAME_CONTEXT_H
 #define GAME_CONTEXT_H
 
-#include "map.h"
+#include "raylib.h"
 #include "character.h"
-#include "settings.h"
+#include "map.h"
 #include "phone.h"
+#include "story.h"
+
+// Forward declarations to break circular dependencies
+typedef struct NPC NPC;
+typedef struct Item Item;
+typedef struct Door Door;
 
 /**
- * @brief Global singleton-like container for the game instance.
+ * @brief Global container for session-persistent data.
  * 
- * Holds references to persistent world objects and manages UI-layer 
- * components like the phone.
+ * This struct holds all the data that needs to be passed between different
+ * systems in the game.
  */
 typedef struct GameContext {
-    Map* map;                  // Reference to the active Tiled world
-    Character* player;         // Reference to the player character state
-    Camera2D camera;           // 2D camera viewport config
-    bool is_outdoor;           // Environment flag for hallucination effects
-    Phone phone;               // Mobile phone notification sub-system
-    int previous_state;        // State cache for returning from Pause/Settings
-    int settings_previous_state; // State cache explicitly for returning from Settings
+    Camera2D camera;           // Camera for rendering
+    Map *map;                  // Current map
+    Character *player;         // Player character
+    Location location;         // Defined in map.h
+    
+    Phone phone;               // Phone system
+    StorySystem story;         // Story system
+    
+    // Dynamic asset storage
+    NPC* worldNPCs;            // Array of NPCs
+    int npcCount;              // Number of NPCs
+    Item* worldItems;          // Array of items
+    int itemCount;             // Number of items
+    Door* worldDoors;          // Array of doors
+    int doorCount;             // Number of doors
+
+    int settings_previous_state;        // Store state before pause/settings
+    int previous_state;                 // Store state before pause/settings
+    
+    bool player_teleport_requested;     // Flag to request player teleport
 } GameContext;
 
-/** @brief Allocates and connects core systems into the context. */
-GameContext InitGameContext(Map* map, Character* player, Settings* settings);
+/** @brief In-place initialization of GameContext.
+ * 
+ * @param context Pointer to the GameContext to initialize
+ * @param map Pointer to the Map to use
+ * @param player Pointer to the Character to use
+ * @param location Location to start at
+ */
+void InitGameContext(GameContext* context, Map *map, Character *player, Location location);
 
-/** @brief Updates global systems (Phone, Camera) every frame. */
-void UpdateGameContext(GameContext* context, Settings* settings, Vector2 map_size);
+/** @brief Updates camera, phone, and other global logic.
+ * 
+ * @param game_context Pointer to the GameContext to update
+ * @param map_size Size of the map
+ */
+void UpdateGameContext(GameContext *game_context, Vector2 map_size);
 
 #endif

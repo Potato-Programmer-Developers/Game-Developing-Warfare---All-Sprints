@@ -42,7 +42,7 @@ typedef enum {
  */
 int UpdateGame(
 	GameState *game_state, struct Interactive *game_interactive, Character *player,
-	struct Item *worldItems, int worldItemsCount, Settings *game_settings, Map *game_map,
+	Settings *game_settings, Map *game_map,
 	GameContext *game_context, Audio *game_audio, Vector2 map_size, Scene *game_scene
 );
 

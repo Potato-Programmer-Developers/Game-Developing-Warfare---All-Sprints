@@ -1,0 +1,3 @@
+[RESPONSE] Just some documents.
+[RESPONSE] Nothing important inside.
+[RESPONSE] You found a potato. | 1

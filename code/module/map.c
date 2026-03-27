@@ -24,15 +24,40 @@ Map InitMap(const char* path){
     Map map = {0};
     map.tiled_map = cute_tiled_load_map_from_file(path, NULL);
 
+    // Extract the directory from the map path
+    char dir[256] = {0};
+    const char* lastSlash = strrchr(path, '/');
+    if (lastSlash) {
+        int len = lastSlash - path + 1;
+        strncpy(dir, path, len);
+        dir[len] = '\0';
+    }
+
     // Load each tileset referenced by the map
     cute_tiled_tileset_t* tileset = map.tiled_map->tilesets;
     while (tileset && map.tileset_count < MAX_TILESETS){
         char fullPath[256];
-        // Note: cute_tiled provides relative paths; we prefix with our assets folder
-        snprintf(fullPath, sizeof(fullPath), "../assets/map/%s", tileset->image.ptr);
+        // Note: cute_tiled provides relative paths; we prefix with our directory path
+        snprintf(fullPath, sizeof(fullPath), "%s%s", dir, tileset->image.ptr);
         map.textures[map.tileset_count] = LoadTexture(fullPath);
         map.tileset_count++;
         tileset = tileset->next;
+    }
+
+    // Search for a specialized "Spawn" object in any object layer
+    cute_tiled_layer_t* layer = map.tiled_map->layers;
+    while (layer){
+        if (strcmp(layer->type.ptr, "objectgroup") == 0){
+            cute_tiled_object_t* object = layer->objects;
+            while (object){
+                if (object->name.ptr && strcmp(object->name.ptr, "Spawn") == 0) {
+                    map.spawn_position = (Vector2){(float)object->x, (float)object->y};
+                    return map;
+                }
+                object = object->next;
+            }
+        }
+        layer = layer->next;
     }
 
     return map;
@@ -140,7 +165,7 @@ bool CheckMapCollision(Map* map, Rectangle rect){
         if (strcmp(layer->type.ptr, "objectgroup") == 0){
             cute_tiled_object_t* object = layer->objects;
             while (object){
-                Rectangle object_rect = { object->x, object->y, object->width, object->height };
+                Rectangle object_rect = { (float)object->x, (float)object->y, (float)object->width, (float)object->height };
 
                 if (CheckCollisionRecs(rect, object_rect)){
                     return true;
@@ -152,4 +177,29 @@ bool CheckMapCollision(Map* map, Rectangle rect){
     }
 
     return false;
+}
+
+/**
+ * @brief Retrieves the visual bounds of a named object from Tiled Object Layers.
+ * 
+ * Scans all 'objectgroup' layers for an object with a matching 'name' field.
+ * Returns a Rectangle{0,0,0,0} if not found.
+ */
+Rectangle GetMapObjectBounds(Map* map, const char* name) {
+    if (!map || !map->tiled_map || !name || strlen(name) == 0) return (Rectangle){0, 0, 0, 0};
+    
+    cute_tiled_layer_t* layer = map->tiled_map->layers;
+    while (layer) {
+        if (strcmp(layer->type.ptr, "objectgroup") == 0) {
+            cute_tiled_object_t* object = layer->objects;
+            while (object) {
+                if (object->name.ptr && strcmp(object->name.ptr, name) == 0) {
+                    return (Rectangle){ (float)object->x, (float)object->y, (float)object->width, (float)object->height };
+                }
+                object = object->next;
+            }
+        }
+        layer = layer->next;
+    }
+    return (Rectangle){0, 0, 0, 0};
 }

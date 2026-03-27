@@ -285,21 +285,21 @@
                  "y":-3.41076830006049
                 }, 
                 {
-                 "height":708,
+                 "height":597.928033876736,
                  "id":19,
                  "name":"",
                  "opacity":1,
                  "rotation":0,
                  "type":"",
                  "visible":true,
-                 "width":1162.64125831821,
-                 "x":1309.74349667272,
+                 "width":1148.62092884047,
+                 "x":1323.76382615046,
                  "y":954
                 }, 
                 {
-                 "height":299.256503327284,
+                 "height":221.394006122823,
                  "id":24,
-                 "name":"",
+                 "name":"big tree",
                  "opacity":1,
                  "rotation":0,
                  "type":"",
@@ -309,7 +309,7 @@
                  "y":2056
                 }, 
                 {
-                 "height":137.589836660617,
+                 "height":81.4703334944893,
                  "id":25,
                  "name":"",
                  "opacity":1,
@@ -321,9 +321,9 @@
                  "y":2425.33333333333
                 }, 
                 {
-                 "height":356.384754990926,
+                 "height":279.437404731219,
                  "id":28,
-                 "name":"",
+                 "name":"potato",
                  "opacity":1,
                  "rotation":0,
                  "type":"",
@@ -333,7 +333,7 @@
                  "y":1448
                 }, 
                 {
-                 "height":143.756503327284,
+                 "height":81.7137530336754,
                  "id":29,
                  "name":"",
                  "opacity":1,
@@ -345,9 +345,9 @@
                  "y":984
                 }, 
                 {
-                 "height":143.333333333333,
+                 "height":88.6326852759915,
                  "id":30,
-                 "name":"",
+                 "name":"tree",
                  "opacity":1,
                  "rotation":0,
                  "type":"",
@@ -595,6 +595,30 @@
                  "width":51.4624454432937,
                  "x":1982.93270796691,
                  "y":590.189564197772
+                }, 
+                {
+                 "height":190.031671945324,
+                 "id":58,
+                 "name":"farmer",
+                 "opacity":1,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":95.015835972662,
+                 "x":1055.17586264377,
+                 "y":1343.55725954326
+                }, 
+                {
+                 "height":0,
+                 "id":60,
+                 "name":"Spawn",
+                 "opacity":1,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":3274.37021271967,
+                 "y":2216.77511190841
                 }],
          "opacity":1,
          "type":"objectgroup",
@@ -603,7 +627,7 @@
          "y":0
         }],
  "nextlayerid":7,
- "nextobjectid":58,
+ "nextobjectid":61,
  "orientation":"orthogonal",
  "renderorder":"right-down",
  "tiledversion":"1.12.0",
