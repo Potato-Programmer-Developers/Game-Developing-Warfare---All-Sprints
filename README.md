@@ -1,3 +1,6 @@
+> Project: Aisling
+> By Team Potato
+
 # A Game to Thrill the World.
 
 This is a C-based psychological thriller game built with the [Raylib](https://www.raylib.com/) library. It features a modular architecture, Tiled map support, and a dedicated dialogue system, it serves as a foundation for a top-down narrative experience.
@@ -50,9 +53,9 @@ For the second method:
 
 ### Running the Game
 
-After a successful build, run the executable: `.\main.exe` for the first method.
+First Method: After a successful build, run the executable: `.\main.exe`.
 
-Run or double-click the `main.exe` file for the second method.
+Second Method: Run or double-click the `main.exe` file.
 
 Note:
 If the second method is not possible in your device, you may need to use the first method.
