@@ -1,0 +1,34 @@
+[CHOICE1] Hey, sorry for earlier (unable to choose this if the player didn’t talk to saul earlier)
+    [RESPONSE] Hmm? Oh it’s you! You were scaring me earlier!
+[CHOICE2] ..Able?
+    [RESPONSE] Sorry I think you have the wrong person.
+    [SANITY] -
+[CHOICE3] Who are you?
+    [RESPONSE] ...
+
+[CHOICE1] Apologies, I’m Kane.
+    [RESPONSE] I’m Saul, nice to meet you. Are you the guy old man Johnny hired to house-sit?
+[CHOICE2] You look just like my brother.
+    [RESPONSE] I’m really not who you’re looking for. My name is Saul. You the house-sitter?
+    [SANITY] -
+
+[CHOICE1] Yeah that’s me. I’m sorry, you just look like an exact copy of my brother.
+    [RESPONSE] What was he like?
+    [CHOICE1] Exactly like you, but a little shorter
+        [RESPONSE] 
+    [CHOICE2] You.
+        [SANITY] -
+    [CHOICE3] XXXXX
+        [SANITY] --
+[CHOICE2] Yeah, do you know him?
+    [RESPONSE] He’s old, but he’s not exactly an old resident. Nobody comes to these parts.
+    [CHOICE1] I see.
+        [RESPONSE] ...
+    [CHOICE2] What’s the deal with him? (-Johnny)
+        [RESPONSE] I don’t exactly see why I should tell you his secrets.
+        [CHOICE1] ... (You don’t know how to answer that.)
+            [RESPONSE] ...
+        [CHOICE2] I’m sorry, I have to go.
+            [RESPONSE] ...
+    [CHOICE3] He’s pretty reliable aint he? (+Johnny)
+        [RESPONSE] Yeah he is. *Akward laughter*

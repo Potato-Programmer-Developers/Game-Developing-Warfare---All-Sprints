@@ -1,0 +1,5 @@
+[CHOICE1] Enter the house.
+    [FADE] BLACK ../assets/map/map_int/MAIN_MAP_INT.json INTERIOR
+    [END]
+[CHOICE2] Don't enter the house.
+    [RESPONSE] ...

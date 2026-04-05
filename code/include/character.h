@@ -1,9 +1,20 @@
 /**
  * @file character.h
- * @brief Player character definitions and movement logic.
+ * @brief Logic and data structures for player movement, stats, and animation.
  * 
- * This module defines the main character's state (stamina, hallucination),
- * animation frames, inventory, and movement functions.
+ * Update History:
+ * - 2026-03-21: Basic `Character` struct implementation for 2D movement. (Goal: Establish the 
+ *                primary player-controlled entity.)
+ * - 2026-04-03: Implemented directional movement and sprite switching. (Goal: Support up, down, 
+ *                left, and right textures for more immersive navigation.)
+ * - 2026-04-05: Integrated stamina and exhaustion mechanics. (Goal: Add tactical depth to 
+ *                movement and exploration.)
+ * 
+ * Revision Details:
+ * - Added `walk_up`, `walk_down`, etc., `Texture2D` members to the `Character` struct.
+ * - Implemented `exhausted` and `needs_shift_reset` flags for improved stamina UX.
+ * - Expanded the character to track `sanity` and `inventory` counts globally.
+ * - Added `frame_rect` and `frame_speed` for flexible sprite-sheet animation control.
  * 
  * Authors: Andrew Zhuo
  */
@@ -23,15 +34,19 @@
 typedef struct Map Map;
 typedef struct Data Data;
 typedef struct StorySystem StorySystem;
+typedef struct Item Item;
+typedef struct NPC NPC;
+typedef struct Door Door;
 
 /**
  * @brief Represents the player character and all associated state.
  */
 typedef struct Character {
     // --- Animation and Graphics ---
-    Texture2D sprite_idle;               // Texture for idle state
-    Texture2D sprite_walk;               // Texture for walking state
-    Texture2D sprite_run;                // Texture for running state
+    Texture2D walk_down;                 // Texture for walking state
+    Texture2D walk_up;                   // Texture for walking state
+    Texture2D walk_left;                 // Texture for walking state
+    Texture2D walk_right;                // Texture for walking state
     Texture2D sprite;                    // Current active texture being drawn
     Vector2 position;                    // World coordinates of the player
     Vector2 size;                        // Visual size of the character
@@ -81,7 +96,7 @@ Character InitCharacter(Settings* game_settings, Data* game_data, Map* game_map)
  * @param location Current character location for footstep sounds.
  * @param story Pointer to the story system for tutorial progress.
  */
-void UpdateCharacter(Character* character, Settings* game_settings, Vector2 map_size, Map* map, Audio* audio, Location location, StorySystem* story);
+void UpdateCharacter(Character *character, Settings *game_settings, Vector2 map_size, Map *map, Audio* audio, Location location, StorySystem* story, Item* items, int itemCount, NPC* npcs, int npcCount, Door* doors, int doorCount, char picked_up_registry[][64], int picked_up_count);
 
 /**
  * @brief Unloads all character textures and frees resources.

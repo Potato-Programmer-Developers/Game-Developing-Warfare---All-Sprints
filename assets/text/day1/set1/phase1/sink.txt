@@ -1,4 +1,4 @@
 [CHOICE] Wash your hands
-    [RESPONSE] They’re still dirty.
+    [RESPONSE] They're still dirty.
 [CHOICE] Drink water
     [RESPONSE] Tastes okay.

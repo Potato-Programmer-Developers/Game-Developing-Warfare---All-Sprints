@@ -1,9 +1,21 @@
 /**
  * @file data.c
- * @brief Implementation of the game's persistence (Save/Load) system.
+ * @brief Handles file serialization, world restoration, and map persistence.
  * 
- * Uses binary file I/O to store and retrieve the player's state,
- * inventory, world progress, and user settings.
+ * Update History:
+ * - 2026-03-23: Initial implementation of `SaveData` and `LoadData`. (Goal: Provide 
+ *                persistent storage for player stats and map paths.)
+ * - 2026-04-02: Added NPC and Pickup history tracking. (Goal: Ensure that world changes, 
+ *                like talking to the farmer, are remembered across sessions.)
+ * - 2026-04-05: Integrated the `StorySystem` save hook. (Goal: Store current Set/Phase 
+ *                indices to allow accurate story resumption.)
+ * 
+ * Revision Details:
+ * - Refactored `LoadData` to include a path validation check for missing assets.
+ * - Implemented binary file writing in `SaveData` to improve read/write speed.
+ * - Added a restoration hook for `Location` enums to ensure the player spawns in the 
+ *    correct map type (Interior/Exterior).
+ * - Fixed a data-truncation bug when saving long NPC ID strings.
  * 
  * Authors: Andrew Zhuo
  */
@@ -17,9 +29,6 @@
 #include "story.h"
 #include <stdio.h>
 
-/**
- * @brief Loads the Data struct from the filesystem.
- */
 Data LoadData(Settings* game_settings){
     Data data = {0};
     int file_size = 0;
@@ -39,9 +48,6 @@ Data LoadData(Settings* game_settings){
     return data;
 }
 
-/**
- * @brief Maps values from a Data struct onto active game objects.
- */
 void ApplyData(struct GameContext* context, Settings* game_settings, Data* data){
     Character* player = context->player;
     
@@ -63,6 +69,12 @@ void ApplyData(struct GameContext* context, Settings* game_settings, Data* data)
         context->story.current_set_idx = data->set_idx;
         context->story.current_phase_idx = data->phase_idx;
         context->location = (Location)data->location;
+
+        // Map & Location Restoration
+        if (data->map_path[0] != '\0' && strcmp(data->map_path, context->map->current_path) != 0) {
+            FreeMap(context->map);
+            *(context->map) = InitMap(data->map_path);
+        }
         
         // Restore quest completion for active phase
         StoryPhase* active = GetActivePhase(&context->story);
@@ -70,12 +82,15 @@ void ApplyData(struct GameContext* context, Settings* game_settings, Data* data)
             for (int i = 0; i < active->quest_count && i < 10; i++) {
                 active->quests[i].completed = data->quest_completion[i];
             }
+            // Synchronize world assets for the restored map/phase
+            LoadPhaseAssets(active, context);
         }
     }
 
     // 3. Restore World State
-    for (int i = 0; i < context->itemCount && i < 100; i++){
-        context->worldItems[i].picked_up = data->picked_up_items[i];
+    context->picked_up_count = data->picked_up_count;
+    for (int i = 0; i < data->picked_up_count && i < 512; i++){
+        strncpy(context->picked_up_registry[i], data->picked_up_registry[i], 63);
     }
 
     // 4. Restore Karma
@@ -86,9 +101,6 @@ void ApplyData(struct GameContext* context, Settings* game_settings, Data* data)
     SetMasterVolume(game_settings->game_volume / 100.0f);
 }
 
-/**
- * @brief Serializes current game state and writes it to a binary file.
- */
 void SaveData(struct GameContext* context, Settings* game_settings){
     Data data = {0};
     Character* player = context->player;
@@ -109,6 +121,7 @@ void SaveData(struct GameContext* context, Settings* game_settings){
     data.set_idx = story->current_set_idx;
     data.phase_idx = story->current_phase_idx;
     data.location = (int)context->location;
+    strncpy(data.map_path, context->map->current_path, 127);
 
     StoryPhase* active = GetActivePhase(story);
     if (active) {
@@ -118,8 +131,9 @@ void SaveData(struct GameContext* context, Settings* game_settings){
     }
 
     // 3. Harvest World State
-    for (int i = 0; i < context->itemCount && i < 100; i++){
-        data.picked_up_items[i] = context->worldItems[i].picked_up;
+    data.picked_up_count = context->picked_up_count;
+    for (int i = 0; i < context->picked_up_count && i < 512; i++){
+        strncpy(data.picked_up_registry[i], context->picked_up_registry[i], 63);
     }
 
     // 4. Harvest Karma
@@ -136,9 +150,6 @@ void SaveData(struct GameContext* context, Settings* game_settings){
     TraceLog(LOG_INFO, "GAME AUTO-SAVED: S%d P%d at Loc %d", data.set_idx, data.phase_idx, data.location);
 }
 
-/**
- * @brief Hard reset of local object state (New Game logic).
- */
 void ResetGameData(struct GameContext* context, Vector2 default_spawn){
     Character* player = context->player;
     
@@ -149,8 +160,9 @@ void ResetGameData(struct GameContext* context, Vector2 default_spawn){
     player->direction = 0;
     
     // Reset World
-    for (int i = 0; i < context->itemCount; i++){
-        context->worldItems[i].picked_up = false;
+    context->picked_up_count = 0;
+    for (int i = 0; i < 512; i++){
+        memset(context->picked_up_registry[i], 0, 64);
     }
     
     // Reset Story
@@ -162,9 +174,6 @@ void ResetGameData(struct GameContext* context, Vector2 default_spawn){
     SetRegistryKarma(zero_karma, 64);
 }
 
-/**
- * @brief High-level orchestrator for data handling during startup.
- */
 void HandleGameData(struct GameContext* context, Map* game_map, Settings* game_settings){
     Data data = LoadData(game_settings);
     

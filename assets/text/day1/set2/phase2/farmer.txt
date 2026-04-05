@@ -1,0 +1,8 @@
+[CHOICE1] How's family?
+    [RESPONSE] Don't ask me about my family.
+    [KARMA] -
+[CHOICE2] Anything I should look out for?
+    [RESPONSE] Just don't forget to lock out the doors. 
+[CHOICE3] Why are you out here?
+    [RESPONSE] It's peaceful. No drama. 
+    [KARMA] +
