@@ -2,8 +2,25 @@
  * @file interactive.c
  * @brief Implementation of the UI system (Buttons and Sliders).
  * 
- * Handles layout calculations based on screen state and processes
- * mouse interaction for menus and settings.
+ * Update History:
+ * - 2026-03-24: Initial creation of the UI system using static PNG buttons. (Goal: 
+ *                Provide basic navigation for the Main Menu.)
+ * - 2026-04-05: Finalized the Volume Slider logic. (Goal: Connect the settings UI 
+ *                directly to the global Audio system.)
+ * - 2026-04-06: Comprehensive "Asset-Light" & "Dynamic Scaling" Refactor. (Goal: Eliminate 
+ *                static textures and implement resolution-independent UI layout logic.)
+ * 
+ * Revision Details:
+ * - Cleaned up `InitInteractive` to remove all `LoadTexture` calls for menu logic.
+ * - Refactored `UpdateInteractiveLayout` to use absolute pixel coordinates (370, 290, etc.) 
+ *    for menu buttons, ensuring pixel-perfect alignment with the new `.qoi` animations.
+ * - Updated `UpdateInteractive` to handle collision detection for the new layout 
+ *    without relying on texture dimensions.
+ * - Removed the `CloseInteractive` implementation and all associated texture unloads.
+ * - Refactored `UpdateInteractiveLayout` to scale button `x`, `y`, `width`, and `height` 
+ *    dynamically based on the current `GetScreenWidth()` and `GetScreenHeight()`.
+ * - Replaced hardcoded button coordinates with a scaling engine using `REF_WIDTH` (1200) 
+ *    and `REF_HEIGHT` (800) as a baseline.
  * 
  * Authors: Andrew Zhuo
  */
@@ -12,115 +29,52 @@
 #include "raylib.h"
 #include "raymath.h"
 
+#define REF_WIDTH 1200.0f
+#define REF_HEIGHT 800.0f
+
 Interactive InitInteractive(Settings* game_settings){
     Interactive new_interactive = {0};
 
-    // 1. Resource Loading
-    new_interactive.new_game_button = LoadTexture("../assets/images/buttons/new_game.png");
-    new_interactive.continue_button = LoadTexture("../assets/images/buttons/continue.png");
-    new_interactive.main_menu_button = LoadTexture("../assets/images/buttons/main_menu.png");
-    new_interactive.settings_button = LoadTexture("../assets/images/buttons/settings.png");
-    new_interactive.quit_button = LoadTexture("../assets/images/buttons/quit.png");
-
-    // 2. Geometry Setup (Constants)
+    // Geometry Setup (Constants)
     new_interactive.bar_width = 770.0f;
     new_interactive.bar_height = 5.0f;
     new_interactive.knob_width = 100.0f;
     new_interactive.knob_height = 120.0f;
 
-    // 3. Initial Layout pass
+    // Initial Layout pass
     UpdateInteractiveLayout(&new_interactive, MAINMENU, game_settings);
     
     return new_interactive;
 }
 
 void UpdateInteractiveLayout(Interactive* interactive, int game_state, Settings* game_settings){
+    // Get current screen dimensions
     float screen_width = (float)GetScreenWidth();
     float screen_height = (float)GetScreenHeight();
     
-    // 1. Calculate scale factors relative to the original reference resolution (1200x800)
-    const float ref_w = (float)game_settings->window_width;
-    const float ref_h = (float)game_settings->window_height;
-    float scale_x = screen_width / ref_w;
-    float scale_y = screen_height / ref_h;
-
-    // 2. Scale the base layout units
-    float slot_h = (float)interactive->new_game_button.height * scale_y;
-    float button_spacing = 20.0f * scale_y;
-    
-    // 3. Calculate start_y using the scaled height for centering
-    float total_h = 4 * slot_h + 3 * button_spacing;
-    float start_y = (screen_height / 2.0f) - (total_h / 2.0f);
+    // Calculate scale factors relative to the original reference resolution (1200x800)
+    float scale_x = screen_width / REF_WIDTH;
+    float scale_y = screen_height / REF_HEIGHT;
 
     if (game_state == MAINMENU){
-        // Original manual adjustments were made on 1200x800
-        // We use scale_x and scale_y to keep these adjustments proportional
-
         if (FileExists("../data/data.dat")){
-            interactive->continue_bounds = (Rectangle){
-                screen_width / 2.0f - (float)interactive->new_game_button.width * 1.9f * scale_x, 
-                start_y + (float)interactive->new_game_button.height * 0.6f * scale_y, 
-                (float)interactive->new_game_button.width * 1.9f * scale_x, 
-                slot_h * 2.0f 
-            };
-            interactive->new_game_bounds = (Rectangle){
-                screen_width / 2.0f + (float)interactive->continue_button.width * 0.15f * scale_x, 
-                start_y + (float)interactive->continue_button.height * 0.6f * scale_y, 
-                (float)interactive->continue_button.width * 1.9f * scale_x, 
-                slot_h * 2.0f
-            };
+            // Reference layout for New/Continue buttons
+            interactive->continue_bounds = (Rectangle){140 * scale_x, 290 * scale_y, 460 * scale_x, 120 * scale_y};
+            interactive->new_game_bounds = (Rectangle){630 * scale_x, 290 * scale_y, 460 * scale_x, 120 * scale_y};
         } else{
-            interactive->new_game_bounds = (Rectangle){
-                screen_width / 2.0f - (float)interactive->new_game_button.width * 0.95f * scale_x, 
-                start_y + (float)interactive->new_game_button.height * 0.6f * scale_y, 
-                (float)interactive->new_game_button.width * 1.9f * scale_x, 
-                slot_h * 2.0f
-            };
-            interactive->continue_bounds = (Rectangle){0, 0, 0, 0};
+            // Centered New Game button reference (370 x, 290 y, 460 w, 120 h)
+            interactive->new_game_bounds = (Rectangle){370 * scale_x, 290 * scale_y, 460 * scale_x, 120 * scale_y};
         }
-        interactive->settings_bounds = (Rectangle){
-            screen_width / 2.0f - (float)interactive->settings_button.width * 0.95f * scale_x, 
-            start_y + 2.6f * (slot_h + button_spacing), 
-            (float)interactive->settings_button.width * 1.9f * scale_x, 
-            slot_h * 2.0f
-        };
-        interactive->quit_bounds = (Rectangle){
-            screen_width / 2.0f - (float)interactive->quit_button.width * 0.95f * scale_x, 
-            start_y + 4.7f * (slot_h + button_spacing), 
-            (float)interactive->quit_button.width * 1.9f * scale_x, 
-            slot_h * 2.0f
-        };
+        interactive->settings_bounds = (Rectangle){370 * scale_x, 440 * scale_y, 460 * scale_x, 120 * scale_y};
+        interactive->quit_bounds = (Rectangle){370 * scale_x, 590 * scale_y, 460 * scale_x, 120 * scale_y};
     } else if (game_state == PAUSE){
-        // Scale standard pause menu buttons to maintain original proportions
-        float pause_btn_w = (float)interactive->continue_button.width * scale_x;
-        float pause_btn_h = slot_h;
-
-        interactive->continue_bounds = (Rectangle){
-            screen_width / 2.0f - pause_btn_w / 2.0f, 
-            start_y, 
-            pause_btn_w, 
-            pause_btn_h 
-        };
-        interactive->settings_bounds = (Rectangle){
-            screen_width / 2.0f - (float)interactive->settings_button.width * scale_x / 2.0f, 
-            start_y + 1 * (slot_h + button_spacing), 
-            (float)interactive->settings_button.width * scale_x, 
-            slot_h 
-        };
-        interactive->main_menu_bounds = (Rectangle){
-            screen_width / 2.0f - (float)interactive->main_menu_button.width * scale_x / 2.0f, 
-            start_y + 2 * (slot_h + button_spacing), 
-            (float)interactive->main_menu_button.width * scale_x, 
-            slot_h 
-        };
-        interactive->quit_bounds = (Rectangle){
-            screen_width / 2.0f - (float)interactive->quit_button.width * scale_x / 2.0f, 
-            start_y + 3 * (slot_h + button_spacing), 
-            (float)interactive->quit_button.width * scale_x, 
-            slot_h 
-        };
+        // Reference layout for Pause menu buttons (centered, 115 height)
+        interactive->continue_bounds = (Rectangle){370 * scale_x, 290 * scale_y, 460 * scale_x, 115 * scale_y};
+        interactive->settings_bounds = (Rectangle){370 * scale_x, 450 * scale_y, 460 * scale_x, 115 * scale_y};
+        interactive->quit_bounds = (Rectangle){370 * scale_x, 595 * scale_y, 460 * scale_x, 115 * scale_y};
     }
 
+    // Volume Slider Bar
     float bar_w = interactive->bar_width * scale_x;
     float bar_h = interactive->bar_height * scale_y;
     interactive->volume_slider_bar = (Rectangle){ 
@@ -151,7 +105,6 @@ void UpdateInteractive(Interactive* interactive, Settings* game_settings){
     // Reset clicked triggers (latches)
     interactive->is_new_game_clicked = false;
     interactive->is_continue_clicked = false;
-    interactive->is_main_menu_clicked = false;
     interactive->is_settings_clicked = false;
     interactive->is_quit_clicked = false;
     interactive->is_settings_back_clicked = false;
@@ -159,14 +112,12 @@ void UpdateInteractive(Interactive* interactive, Settings* game_settings){
     // --- Phase 1: Button Interaction ---
     interactive->is_new_game_hovered = CheckCollisionPointRec(mouse_position, interactive->new_game_bounds);
     interactive->is_continue_hovered = CheckCollisionPointRec(mouse_position, interactive->continue_bounds);
-    interactive->is_main_menu_hovered = CheckCollisionPointRec(mouse_position, interactive->main_menu_bounds);
     interactive->is_settings_hovered = CheckCollisionPointRec(mouse_position, interactive->settings_bounds);
     interactive->is_quit_hovered = CheckCollisionPointRec(mouse_position, interactive->quit_bounds);
     interactive->is_settings_back_hovered = CheckCollisionPointRec(mouse_position, interactive->settings_back_bounds);
 
     if (interactive->is_new_game_hovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) interactive->is_new_game_clicked = true;
     if (interactive->is_continue_hovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) interactive->is_continue_clicked = true;
-    if (interactive->is_main_menu_hovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) interactive->is_main_menu_clicked = true;
     if (interactive->is_settings_hovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) interactive->is_settings_clicked = true;
     if (interactive->is_quit_hovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) interactive->is_quit_clicked = true;
     if (interactive->is_settings_back_hovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) interactive->is_settings_back_clicked = true;
@@ -204,13 +155,4 @@ void UpdateInteractive(Interactive* interactive, Settings* game_settings){
         // Visual sync
         interactive->volume_slider_knob.x = new_knob_x - interactive->knob_width / 2.0f;
     }
-}
-
-void CloseInteractive(Interactive* interactive){
-    // Unload all textures from VRAM
-    UnloadTexture(interactive->new_game_button);
-    UnloadTexture(interactive->continue_button);
-    UnloadTexture(interactive->main_menu_button);
-    UnloadTexture(interactive->settings_button);
-    UnloadTexture(interactive->quit_button);
 }

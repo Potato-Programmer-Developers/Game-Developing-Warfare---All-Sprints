@@ -9,12 +9,16 @@
  *                and structured map-loading sequences.)
  * - 2026-04-05: Expanded for `Dream Sequence` and `Narration` UI. (Goal: Provide a way for 
  *                non-player entities to draw to the screen during cutscenes.)
+ * - 2026-04-06: Added `LoadPauseFrame` support. (Goal: Enable on-demand loading of 
+ *                high-resolution frame sequences for the pause menu.)
  * 
  * Revision Details:
- * - Defined `Scene` to include `vignette`, `mainmenu`, and `pause` background textures.
+ * - Defined `Scene` to include `vignette`, `mainmenu`, and `pause_menu_background` textures.
  * - Added `fade_alpha` and `pending_map` for asynchronous map transition coordination.
  * - Implemented `DrawFade` and `UpdateFade` prototypes for project-wide use.
  * - Created `ClearCutscene` and `CloseScene` for memory management.
+ * - Added the `LoadPauseFrame` prototype to facilitate pause-animation frame cycling.
+ * - Updated internal timers to support independent animation speeds for different UI states.
  * 
  * Authors: Andrew Zhuo and Steven Kenneth Darwy
  */
@@ -114,6 +118,14 @@ void LoadSettingsFrame(Scene *scene, int frame_index);
  * @param frame_index Index of the frame to load.
  */
 void LoadKnobFrame(Scene *scene, int frame_index);
+
+/**
+ * @brief Loads a specific image from disk into the current_pause_frame_texture.
+ *
+ * @param scene Pointer to the scene.
+ * @param frame_index Index of the frame to load.
+ */
+void LoadPauseFrame(Scene *scene, int frame_index);
 
 /**
  * @brief Draws the main menu UI and background.

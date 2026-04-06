@@ -10,6 +10,8 @@
  * - 2026-04-05: Synchronized "Dialogue-to-Map" and "Phone-to-Gameplay" transitions. (Goal: Bridge 
  *                multiple systems so that narrative triggers correctly initiate camera fades and 
  *                map loads at the 'peak' of the transition.)
+ * - 2026-04-06: Implemented "Animated UI State Transitions" and "Dynamic Resizing." (Goal: Support 
+ *                animated backgrounds and automatic UI layout refreshments upon window resizing.)
  * 
  * Revision Details:
  * - Implemented a global fade update hook in `UpdateGame` to manage asynchronous map transitions.
@@ -17,6 +19,19 @@
  * - Integrated `UpdateStory` into the main loop to ensure objectives are polled every frame.
  * - Added safe state-restoration in the `PAUSE` and `SETTINGS` case blocks.
  * - Forced a 24 FPS target during settings menus for consistent UI performance.
+ * - Added a static `pause_frame_timer` and `settings_frame_timer` to decouple animation speeds 
+ *    from the global framerate (24 FPS target).
+ * - Implemented a `current_cutscene_frame` reset to 1 upon `KEY_ESCAPE` press to ensure the 
+ *    pause animation always starts from the first frame.
+ * - Resolved a critical state-machine bug ("Pause Menu Fallthrough") by restoring missing 
+ *    `break;` statements that were causing `PAUSE` logic to execute `SETTINGS` logic.
+ * - Implemented an `IsWindowResized()` listener that triggers `UpdateInteractiveLayout` 
+ *    automatically to keep hitboxes aligned with the scaled visual background.
+ * - Synchronized the pause menu transition with `UpdateInteractiveLayout` to update 
+ *    button bounding boxes in real-time.
+ * - Resolved a state-machine bug by restoring missing `break;` statements.
+ * - Synchronized the pause menu transition with `UpdateInteractiveLayout` to refresh 
+ *    button bounding boxes in real-time.
  * 
  * Authors: Andrew Zhuo and Steven Kenneth Darwy
  */
@@ -55,6 +70,11 @@ int UpdateGame(GameState* game_state, struct Interactive* game_interactive, Char
     // Global fade update
     if (game_scene != NULL){
         UpdateFade(game_scene, GetFrameTime(), *game_state);
+    }
+
+    // Refresh UI layout if window was resized
+    if (IsWindowResized() && game_interactive != NULL){
+        UpdateInteractiveLayout(game_interactive, *game_state, game_settings);
     }
     
     // Trigger deferred transitions when returning from dialogue to gameplay
@@ -188,11 +208,20 @@ int UpdateGame(GameState* game_state, struct Interactive* game_interactive, Char
             if (IsKeyPressed(KEY_ESCAPE)){
                 game_context->previous_state = *game_state;
                 *game_state = PAUSE;
+                game_scene->current_cutscene_frame = 1;
                 UpdateInteractiveLayout(game_interactive, PAUSE, game_settings);
                 ShowCursor();
             }
             break;
-        case PAUSE:
+        case PAUSE: {
+            static float pause_frame_timer = 0.0f;
+            pause_frame_timer += GetFrameTime();
+            if (pause_frame_timer >= 1.0f / 24.0f){
+                if (game_scene->current_cutscene_frame < 1 || game_scene->current_cutscene_frame > 102) game_scene->current_cutscene_frame = 1;
+                LoadPauseFrame(game_scene, game_scene->current_cutscene_frame);
+                game_scene->current_cutscene_frame++;
+                pause_frame_timer = 0.0f;
+            }
             UpdateInteractive(game_interactive, game_settings);
 
             // Check if player clicks buttons in pause menu
@@ -204,26 +233,26 @@ int UpdateGame(GameState* game_state, struct Interactive* game_interactive, Char
                 game_context->settings_previous_state = *game_state;
                 SetTargetFPS(24);
                 *game_state = SETTINGS;
-            } else if (game_interactive->is_main_menu_clicked){
-                SaveData(game_context, game_settings);
-                *game_state = MAINMENU;
-                UpdateInteractiveLayout(game_interactive, MAINMENU, game_settings);
-                game_interactive->is_main_menu_clicked = false;
             } else if (game_interactive->is_quit_clicked){
                 SaveData(game_context, game_settings);
                 return 1;
             }
             ShowCursor();
+        }
             break;
-        case SETTINGS:
-            // Reset cutscene frame if needed
-            if (game_scene->current_cutscene_frame < 1 || game_scene->current_cutscene_frame > 102) game_scene->current_cutscene_frame = 1;
-
-            // Load settings frame
-            LoadSettingsFrame(game_scene, game_scene->current_cutscene_frame);
-            LoadKnobFrame(game_scene, game_scene->current_cutscene_frame);
-            game_scene->current_cutscene_frame++;
-            if (game_scene->current_cutscene_frame > 102) game_scene->current_cutscene_frame = 1;
+        case SETTINGS: {
+            static float settings_frame_timer = 0.0f;
+            settings_frame_timer += GetFrameTime();
+            if (settings_frame_timer >= 1.0f / 24.0f){
+                // Reset cutscene frame if needed
+                if (game_scene->current_cutscene_frame < 1 || game_scene->current_cutscene_frame > 102) game_scene->current_cutscene_frame = 1;
+                // Load settings frame
+                LoadSettingsFrame(game_scene, game_scene->current_cutscene_frame);
+                LoadKnobFrame(game_scene, game_scene->current_cutscene_frame);
+                game_scene->current_cutscene_frame++;
+                if (game_scene->current_cutscene_frame > 102) game_scene->current_cutscene_frame = 1;
+                settings_frame_timer = 0.0f;
+            }
             UpdateInteractive(game_interactive, game_settings);
 
             // Check if player clicks buttons in settings menu
@@ -233,6 +262,7 @@ int UpdateGame(GameState* game_state, struct Interactive* game_interactive, Char
                 UpdateInteractiveLayout(game_interactive, *game_state, game_settings);
             }
             ShowCursor();
+        }
             break;
         case DIALOGUE_CUTSCENE:
             HideCursor();

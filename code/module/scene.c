@@ -9,12 +9,19 @@
  *                visual feedback for quest progression through a semi-transparent UI box.)
  * - 2026-04-05: Integrated the "Dream Sequence" renderer and Fade synchronizer. (Goal: Support 
  *                the display of narrative-only 'dream' text on a black background during transitions.)
+ * - 2026-04-06: Expansion of the "UI Animation Engine." (Goal: Modularize frame loading logic 
+ *                to support diverse menu animations—Main, Pause, and Settings—while maintaining 
+ *                low VRAM usage through on-demand loading.)
  * 
  * Revision Details:
  * - Refactored `DrawGame` to include conditional rendering for `NARRATION_CUTSCENE` and `PHONE` overlays.
  * - Implemented `DrawFade` to handle project-wide color transitions using a global alpha value.
  * - Added dynamic quest list rendering in `scene.c` that scales based on `active_phase->quest_count`.
  * - Fixed a rendering bug where UI elements were being drawn inside the camera transform.
+ * - Implemented the `LoadPauseFrame` helper function to handle frame sequences from the 
+ *    `../assets/videos/esc_option/` directory.
+ * - Refactored `DrawPauseMenu` to render `current_cutscene_frame_texture` as its background, 
+ *    removing the requirement for a static background texture.
  * 
  * Authors: Andrew Zhuo and Steven Kenneth Darwy
  */
@@ -264,16 +271,15 @@ void DrawMainMenu(Scene* scene, Interactive* game_interactive){
 }
 
 void DrawPauseMenu(Scene* scene, Settings* game_settings, Interactive* game_interactive){
-    // Draw pause menu background
-    DrawTexturePro(scene->pause_menu_background, 
-        (Rectangle){0, 0, (float)scene->pause_menu_background.width, (float)scene->pause_menu_background.height},
+    // Draw pause menu background (animated)
+    DrawTexturePro(scene->current_cutscene_frame_texture, 
+        (Rectangle){0, 0, (float)scene->current_cutscene_frame_texture.width, (float)scene->current_cutscene_frame_texture.height},
         (Rectangle){0, 0, (float)GetScreenWidth(), (float)GetScreenHeight()},
         (Vector2){0, 0}, 0.0f, WHITE);
     
-    DrawTexture(game_interactive->continue_button, game_interactive->continue_bounds.x, game_interactive->continue_bounds.y, game_interactive->is_continue_hovered ? GRAY : WHITE);
-    DrawTexture(game_interactive->settings_button, game_interactive->settings_bounds.x, game_interactive->settings_bounds.y, game_interactive->is_settings_hovered ? GRAY : WHITE);
-    DrawTexture(game_interactive->main_menu_button, game_interactive->main_menu_bounds.x, game_interactive->main_menu_bounds.y, game_interactive->is_main_menu_hovered ? GRAY : WHITE);
-    DrawTexture(game_interactive->quit_button, game_interactive->quit_bounds.x, game_interactive->quit_bounds.y, game_interactive->is_quit_hovered ? GRAY : WHITE);
+    if (game_interactive->is_continue_hovered) DrawRectangleRec(game_interactive->continue_bounds, Fade(WHITE, 0.3f));
+    if (game_interactive->is_settings_hovered) DrawRectangleRec(game_interactive->settings_bounds, Fade(WHITE, 0.3f));
+    if (game_interactive->is_quit_hovered) DrawRectangleRec(game_interactive->quit_bounds, Fade(WHITE, 0.3f));
 }
 
 void DrawSettings(Scene* scene, Settings* game_settings, Interactive* game_interactive){
@@ -360,6 +366,14 @@ void LoadKnobFrame(Scene *scene, int frame_index){
     char path[100];
     sprintf(path, "../assets/videos/slider_knob/frame%04d.qoi", frame_index);
     scene->current_knob_frame_texture = LoadTexture(path);
+}
+
+void LoadPauseFrame(Scene *scene, int frame_index){
+    // Load pause menu frame
+    if (scene->current_cutscene_frame_texture.id != 0) UnloadTexture(scene->current_cutscene_frame_texture);
+    char path[100];
+    sprintf(path, "../assets/videos/esc_option/frame%04d.qoi", frame_index);
+    scene->current_cutscene_frame_texture = LoadTexture(path);
 }
 
 void ClearCutscene(Scene* scene){
