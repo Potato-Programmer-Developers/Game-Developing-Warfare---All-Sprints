@@ -3,5 +3,4 @@
     [RESPONSE] You need to get a better job.
     [RESPONSE] 2 cans of beer.
 [CHOICE2] Look at the picture
-    [FADE] BLACK ../assets/map/map_ext/MAINMAP.json EXTERIOR
-    [END]
+    [PHONE]

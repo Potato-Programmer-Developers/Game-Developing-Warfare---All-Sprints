@@ -9,12 +9,19 @@
  *                gameplay from `data.dat` and switching between Menu/Play states.)
  * - 2026-04-05: Real-time synchronization of Narration, Phone, and Fade states. (Goal: Create 
  *                a reactive main loop where narrative beats correctly trigger UI layers and map switches.)
+ * - 2026-04-07: Added `narration_has_started` Logic. (Goal: Synchronize the narrative 
+ *                engine with the main game loop to prevent premature quest completion in 
+ *                interactive phases.)
  * 
  * Revision Details:
  * - Refactored the main loop to support `NARRATION_CUTSCENE` as a blocking state.
  * - Expanded the `playerHitbox` logic to provide a 40px interaction buffer.
  * - Implemented a "Fade-Safe" trigger for narrative prompts to prevent UI overlapping during maps loads.
  * - Added comprehensive cleanup calls for `CloseScene`, `CloseAudio`, and `FreeMap` on exit.
+ * - Updated the `narration_pending` processor to set `narration_has_started = true` 
+ *    once the fade is settled and the UI is active.
+ * - Optimized the call order of `UpdateStory` and `UpdatePhone` to ensure better 
+ *    state transitions.
  * 
  * Authors: Andrew Zhuo, Cornelius Jabez Lim, Steven Kenneth Darwy
  */
@@ -143,6 +150,7 @@ void RunGame(Character *player, Audio *game_audio, Settings *game_settings,
             if (!game_scene->is_fading_out && !game_scene->is_fading_in && game_scene->fade_alpha <= 0.01f) {
                 game_context->story.narration_pending = false;
                 game_context->story.narration_active = true;
+                game_context->story.narration_has_started = true;
                 game_context->story.narration_current_line = 0;
                 game_context->story.narration_in_loop = false;
                 game_context->story.narration_showing_response = false;

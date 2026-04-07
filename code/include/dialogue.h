@@ -2,8 +2,15 @@
  * @file dialogue.h
  * @brief Function prototypes and definitions for the dialogue system.
  * 
- * Defines the structure for managing multi-line dialogue boxes and 
- * handles loading narrative text from external files.
+ * Update History:
+ * - 2026-03-22: Initial data structures for response and group containers. (Goal: Support 
+ *                static NPC responses.)
+ * - 2026-04-07: Added `triggers_phone` Support. (Goal: Enable branching dialogues 
+ *                to initiate narrative phone sequences.)
+ * 
+ * Revision Details:
+ * - Expanded `DialogueNode` to include a boolean flag for phone-triggering.
+ * - Updated prototypes to support cross-module narrative signaling.
  * 
  * Authors: Andrew Zhuo and Cornelius Jabez Lim
  */
@@ -54,6 +61,7 @@ typedef struct {
     char fade_color[32];                 // Custom fade color (BLACK, WHITE, etc)
     char target_map[128];                // Optional fade target
     char target_loc[32];                 // Optional fade location
+    bool triggers_phone;                 // If true, activates the phase's phone notification
 } DialogueNode;
 
 

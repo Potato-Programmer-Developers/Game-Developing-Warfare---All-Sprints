@@ -14,9 +14,14 @@
  * - 2026-04-05: Integrated "Phone Pending" and "Narration Timing" logic. (Goal: Synchronize the 
  *                narrative system with the camera and map fade effects, ensuring dialogues and 
  *                phone notifications only appear after the world has fully settled.)
+ * - 2026-04-07: Resolved "Premature Quest Completion" BUG. (Goal: Prevent 
+ *                `CONDITION_NARRATION_COMPLETE` from triggering before narration has started.)
  * 
  * Revision Details:
  * - Refactored `AdvanceStory` to support loading `dayX.txt` files dynamically via `LoadStoryDay`.
+ * - Refined the `CONDITION_PHONE_COMPLETE` state machine for bi-directional choice support.
+ * - Restricted auto-narration to phases with zero interactables (pure cutscenes).
+ * - Updated `UpdateStory` to handle deferred triggering via the new dialogue [PHONE] tag.
  * - Implemented a `ReplaceNewlines` helper function to handle `\n` character sequences globally.
  * - Added persistence for `met` flags in the `StoryCondition` struct to prevent phase-skipping.
  * - Created a dedicated `phone_pending` flag to defer phone sequence triggers until map loads complete.
@@ -26,6 +31,8 @@
  */
 
 #include "story.h"
+#include "scene.h"
+#include "game_context.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -251,6 +258,8 @@ void LoadStoryDay(StorySystem* story, const char* path) {
             else if (strstr(line, "FARM")) phase->location = STORY_LOC_FARM;
             else if (strstr(line, "FOREST")) phase->location = STORY_LOC_FOREST;
             else phase->location = STORY_LOC_NONE;
+        } else if (strstr(line, "[FORCE_NARRATION]")){
+            phase->force_narration = true;
         } else if (strstr(line, "[INTERACTABLE_TYPE_ITEM]")){
             if (phase->interactable_count < 20){
                 strcpy(phase->interactables[phase->interactable_count].type, "ITEM");
@@ -315,13 +324,15 @@ void LoadStoryDay(StorySystem* story, const char* path) {
     }
 
     fclose(file);
-    story->current_set_idx = 0;
     story->current_phase_idx = 0;
     story->phase_timer = 0;
+    story->narration_has_started = false;
 
     // Trigger narration if first phase has it (deferred via pending flag)
+    // only auto-trigger if there are no interactables (indicating a pure cutscene phase)
+    // or if FORCE_NARRATION is explicitly set
     StoryPhase* first = GetActivePhase(story);
-    if (first && first->narration_count > 0) {
+    if (first && first->narration_count > 0 && (first->interactable_count == 0 || first->force_narration)) {
         story->narration_pending = true;
     }
 }
@@ -360,8 +371,9 @@ static bool AllConditionsMet(StoryPhase* active, struct GameContext* game_contex
                 break;
 
             case CONDITION_NARRATION_COMPLETE: {
-                // Check that narration is no longer active AND all loop choices are done
+                // Check that narration is no longer active AND has actually started
                 if (game_context->story.narration_active) return false;
+                if (active->narration_count > 0 && !game_context->story.narration_has_started) return false;
                 for (int j = 0; j < active->narration_choice_count; j++) {
                     if (!active->narration_choices[j].completed) return false;
                 }
@@ -382,6 +394,12 @@ static bool AllConditionsMet(StoryPhase* active, struct GameContext* game_contex
 
 void UpdateStory(struct GameContext* game_context, float delta){
     StorySystem* story = &game_context->story;
+    Scene* game_scene = game_context->game_scene;
+
+    // Guard: Do not update story logic while the screen is fading.
+    // This prevents AdvanceStory from being called multiple times during the transition.
+    if (game_scene && (game_scene->is_fading_out || game_scene->is_fading_in)) return;
+
     StoryPhase* active = GetActivePhase(story);
     if (!active) return;
 
@@ -461,6 +479,13 @@ void AdvanceStory(struct GameContext* game_context){
     story->narration_current_line = 0;
     story->narration_in_loop = false;
     story->narration_showing_response = false;
+    story->narration_has_started = false;
+    story->phone_sequence_active = false;
+    story->phone_message_timer = 0.0f;
+
+    // Reset phone for new phase
+    game_context->phone.state = PHONE_IDLE;
+    game_context->phone.already_triggered = false;
     
     // Reset dream state
     game_context->dream_active = false;
@@ -499,6 +524,23 @@ void AdvanceStory(struct GameContext* game_context){
         for (int i = 0; i < next->condition_count; i++) {
             next->end_conditions[i].met = false;
         }
+
+        // Automatic map transition if the new phase has a different location
+        if (next->location != STORY_LOC_NONE && (int)next->location != (int)game_context->location) {
+            if (game_context->game_scene) {
+                game_context->game_scene->is_fading_out = true;
+                game_context->game_scene->fade_alpha = 0.0f;
+                game_context->game_scene->fade_color = BLACK;
+                
+                if (next->location == STORY_LOC_EXTERIOR) {
+                    strncpy(game_context->game_scene->pending_map, "../assets/map/map_ext/MAINMAP.json", 127);
+                    strncpy(game_context->game_scene->pending_loc, "EXTERIOR", 31);
+                } else if (next->location == STORY_LOC_APARTMENT) {
+                    strncpy(game_context->game_scene->pending_map, "../assets/map/map_int/MAINMAP.json", 127);
+                    strncpy(game_context->game_scene->pending_loc, "APARTMENT", 31);
+                }
+            }
+        }
     }
 
     bool wants_interactive_phone = false;
@@ -514,7 +556,7 @@ void AdvanceStory(struct GameContext* game_context){
     }
 
     story->phone_pending = wants_interactive_phone;
-    if (!wants_interactive_phone && next && next->narration_count > 0) {
+    if (!wants_interactive_phone && next && next->narration_count > 0 && (next->interactable_count == 0 || next->force_narration)) {
         // Mark narration as pending (will be activated after fade/camera settle)
         story->narration_pending = true;
     }

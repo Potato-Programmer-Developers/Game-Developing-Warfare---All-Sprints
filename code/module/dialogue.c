@@ -9,12 +9,20 @@
  *                conversations where player choices lead to child nodes.)
  * - 2026-04-05: Integrated state-based transitions and "Sanity/Karma" effects. (Goal: Bridge 
  *                conversations to game mechanics, allowing NPC interaction to alter player stats.)
+ * - 2026-04-07: Implemented "Phone Notification" tags and "Sequential Follow-ups." (Goal: 
+ *                Allow dialogues to trigger phase-based phone messages and merge choice-leaves 
+ *                into sequential conversations.)
  * 
  * Revision Details:
  * - Added a recursive-like stack parser in `LoadInteraction` to handle multi-level indentation.
  * - Implemented `PickResponse` for randomized NPC variations.
  * - Created `PrepareNodeText` to format dialogue for the UI system.
  * - Added serialization for `pending_target_map` within the dialogue node structure.
+ * - Added a leaf-node linking loop that connects the `next_node` of all previous choices 
+ *    to the new conversation parent, ensuring a unified flow.
+ * - Optimized character buffer handling for narrative checks.
+ * - Added `[PHONE]` tag parsing to `LoadInteraction`, mapping it to `DialogueNode.triggers_phone`.
+ * - Implemented root-level `[CONVERSATION]` linking to bridge different dialogue blocks.
  * 
  * Authors: Andrew Zhuo and Cornelius Jabez Lim
  */
@@ -108,8 +116,25 @@ void LoadInteraction(const char* filename, Dialogue* dialogue, struct GameContex
                 strncpy(dialogue->nodes[current_parent_idx].target_loc, loc, 31);
             }
         }
-        // 1. NPC Response Tag
+        // 5. Phone Notification Tag
+        if (strstr(line, "[PHONE]")) {
+            dialogue->nodes[current_parent_idx].triggers_phone = true;
+        }
         if (strstr(line, "[CONVERSATION]")) {
+            // If we are at root level and have already defined a block (choices or sequence)
+            if (stack_ptr == 1 && (dialogue->nodes[current_block_root].choice_count > 0 || dialogue->nodes[current_block_root].response_count > 0)) {
+                int new_root = dialogue->node_count++;
+                // Link "leaves" of the previous block (choices with response) to this new root
+                for (int n = current_block_root; n < new_root; n++) {
+                    // Leaves are nodes that don't have further child choices
+                    if (dialogue->nodes[n].choice_count == 0 && n != new_root) {
+                        dialogue->nodes[n].next_node = new_root;
+                    }
+                }
+                current_block_root = new_root;
+                node_stack[0] = new_root;
+                current_parent_idx = new_root;
+            }
             dialogue->nodes[current_parent_idx].is_conversation = true;
         } else if (strstr(line, "[RESPONSE]")) {
             char* text = strstr(line, "[RESPONSE]") + 10;

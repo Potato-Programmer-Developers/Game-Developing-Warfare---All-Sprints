@@ -317,7 +317,14 @@ void InteractWithNPC(NPC *npc, Dialogue* game_dialogue, GameState* game_state, s
                         strncpy(game_dialogue->pending_target_map, next_node->target_map, 127);
                         strncpy(game_dialogue->pending_target_loc, next_node->target_loc, 31);
                     }
-                } else { *game_state = GAMEPLAY; UpdateStoryConditions(game_context, game_dialogue, current_interactable_id); }
+                } else { 
+                    if (current_node->child_nodes[key - 1] != -1) {
+                         DialogueNode* child = &game_dialogue->nodes[current_node->child_nodes[key - 1]];
+                         if (child->triggers_phone) game_context->story.narration_pending = true;
+                    }
+                    *game_state = GAMEPLAY; 
+                    UpdateStoryConditions(game_context, game_dialogue, current_interactable_id); 
+                }
             }
         }
         if (IsKeyPressed(KEY_SPACE)) {
@@ -331,6 +338,7 @@ void InteractWithNPC(NPC *npc, Dialogue* game_dialogue, GameState* game_state, s
                             game_dialogue->current_node_idx = current_node->next_node;
                             PrepareNodeText(game_dialogue, current_node->next_node);
                         } else{
+                            if (current_node->triggers_phone) game_context->story.narration_pending = true;
                             UpdateStoryConditions(game_context, game_dialogue, current_interactable_id);
                             *game_state = GAMEPLAY;
                         }

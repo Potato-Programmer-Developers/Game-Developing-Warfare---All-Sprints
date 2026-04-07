@@ -108,7 +108,7 @@ int UpdateGame(GameState* game_state, struct Interactive* game_interactive, Char
         
         StoryPhase* active = GetActivePhase(&game_context->story);
         if (active) LoadPhaseAssets(active, game_context);
-        if (*game_state == DIALOGUE_CUTSCENE) *game_state = GAMEPLAY;
+        *game_state = GAMEPLAY;
     }
 
     switch(*game_state){

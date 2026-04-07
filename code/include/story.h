@@ -12,12 +12,17 @@
  *                camera/map transitions are complete.)
  * - 2026-04-05: Integrated persistent state monitoring to the `StorySystem`. (Goal: Enable 
  *                seamless cross-day state tracking and automated file loading.)
+ * - 2026-04-07: Implemented `narration_has_started` Tracking. (Goal: Ensure that 
+ *                story phases ending in `NARRATION_COMPLETE` do not auto-skip before 
+ *                the narration has actually been triggered.)
  * 
  * Revision Details:
  * - Added `StoryConditionType` enum entries for `CONDITION_DREAM_COMPLETE` and `CONDITION_AUTO_COMPLETE`.
  * - Expanded `StoryCondition` struct to include a `met` flag for reliable state polling.
  * - Updated `StorySystem` to store the `day_folder` string for relative asset pathing.
  * - Prototyped `ReplaceNewlines` to be shared across narration and phone modules.
+ * - Added `bool narration_has_started` to the `StorySystem` struct.
+ * - Updated story condition logic to require a "started" state before marking as "complete".
  * 
  * Authors: Andrew Zhuo
  */
@@ -109,6 +114,7 @@ typedef struct StoryPhase {
     int quest_count;                         // Number of quests in the phase
     PhaseInteractable interactables[20];     // Interactable objects in the phase
     int interactable_count;                  // Number of interactable objects in the phase
+    bool force_narration;                    // Force narration skip based on interactable count?
     StoryCondition end_conditions[5];        // Multiple conditions to end the phase
     int condition_count;                     // Number of active conditions
     NarrationLine narration_lines[20];       // Interactive narration lines
@@ -148,6 +154,7 @@ typedef struct StorySystem {
     bool narration_showing_response;        // Showing a choice response?
     char narration_response_text[128];      // Current response text being shown
     bool narration_pending;                 // Narration waiting for fade/camera to settle
+    bool narration_has_started;             // Has the current phase's narration ever been activated?
 
     // Phone playback state
     int phone_current_index;                // Currently showing message index

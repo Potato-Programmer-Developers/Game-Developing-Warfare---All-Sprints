@@ -6,3 +6,7 @@
 [CHOICE3] You the guy who hired me?
     [RESPONSE] Awfully rude, aren't you?
     [KARMA] -
+
+[CONVERSATION]
+Here's the instructions, you'll get paid by the end of the week.
+Don't forget to lock up.

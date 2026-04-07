@@ -184,7 +184,7 @@ void UpdateCharacter(Character *character, Settings *game_settings, Vector2 map_
         static float step_timer = 0;
         step_timer += GetFrameTime();
         if (step_timer >= step_interval){
-            if (location == EXTERIOR) PlaySound(audio->step_outdoor);
+            if (location == EXTERIOR || location == FARM) PlaySound(audio->step_outdoor);
             else PlaySound(audio->step_indoor);
             step_timer = 0;
         }

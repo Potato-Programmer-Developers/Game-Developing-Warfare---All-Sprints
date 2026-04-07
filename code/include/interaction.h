@@ -9,12 +9,15 @@
  *                moving between EXERTERIOR and INTERIOR maps.)
  * - 2026-04-05: Integrated session persistence for pickups and quest completion. (Goal: Allow 
  *                interaction results to influence the story phase and save-state.)
+ * - 2026-04-07: Added `triggers_phone` logic to NPC interaction handler. (Goal: Bridges 
+ *                dialogue results to the story-phase phone-sequence system.)
  * 
  * Revision Details:
  * - Defined `InteractableType` for `NPC`, `ITEM`, and `DOOR` classification.
  * - Expanded `Interactable` struct to include an `interactable_id` for story string matching.
  * - Added `Item` struct with `is_pickup` and `picked_up` status tracking.
  * - Created `CheckInteractable` to take a generic `playerHitbox` for flexible collision detection.
+ * 
  * 
  * Authors: Andrew Zhuo and Cornelius Jabez Lim
  */
