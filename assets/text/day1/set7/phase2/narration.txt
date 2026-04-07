@@ -1,0 +1,23 @@
+[PHONE] 730-187-15
+    [MESSAGE] I know what you did.
+    [MESSAGE] It's time for you to pay, Kane.
+    [MESSAGE] No more running.
+What was that?
+I'm... not getting the best feeling out of that text.
+I should prepare for bed.
+[PLAY] FOOTSTEP
+What was that?
+I should do something.
+[LOOP]
+    [CHOICE] Lock the main door
+        [RESPONSE] Main door locked.
+        [STATE] main_door_locked true
+    [CHOICE] Lock the windows
+        [RESPONSE] Windows locked.
+        [STATE] windows_locked true
+    [CHOICE] Put out the fireplace
+        [RESPONSE] Fireplace put out.
+        [STATE] fireplace_on false
+    [CHOICE] Take the room keys
+        [RESPONSE] Room keys taken.
+        [STATE] has_room_keys true

@@ -1,23 +1,14 @@
-/**
- * @file map.c
- * @brief Implementation of the Tiled map system and collision physics.
- * 
- * Integrates cute_tiled to parse .json exports from Tiled. Handles 
- * multi-layered rendering and object-layer collision checks.
- * 
- * Authors: Andrew Zhuo
- */
-
 #define CUTE_TILED_IMPLEMENTATION
-
 #include <stdbool.h>
 #include <stdio.h>
+#include <string.h>
 #include "map.h"
 
 Map InitMap(const char* path){
     Map map = {0};
+    strncpy(map.current_path, path, 127);
     map.tiled_map = cute_tiled_load_map_from_file(path, NULL);
-
+    
     // Extract the directory from the map path
     char dir[256] = {0};
     const char* lastSlash = strrchr(path, '/');
@@ -31,14 +22,13 @@ Map InitMap(const char* path){
     cute_tiled_tileset_t* tileset = map.tiled_map->tilesets;
     while (tileset && map.tileset_count < MAX_TILESETS){
         char fullPath[256];
-        // Note: cute_tiled provides relative paths; we prefix with our directory path
         snprintf(fullPath, sizeof(fullPath), "%s%s", dir, tileset->image.ptr);
         map.textures[map.tileset_count] = LoadTexture(fullPath);
         map.tileset_count++;
         tileset = tileset->next;
     }
 
-    // Search for a specialized "Spawn" object in any object layer
+    // Search for a specialized "Spawn" object
     cute_tiled_layer_t* layer = map.tiled_map->layers;
     while (layer){
         if (strcmp(layer->type.ptr, "objectgroup") == 0){
@@ -57,18 +47,24 @@ Map InitMap(const char* path){
     return map;
 }
 
-void DrawMap(Map* map){
+void DrawMap(Map* map, bool fireplace_on, bool doors){
+    if (!map || !map->tiled_map) return;
     cute_tiled_layer_t* layer = map->tiled_map->layers;
     while (layer){
-        // It only render 'tilelayer' types here; 'objectgroup' is used for physics
         if (strcmp(layer->type.ptr, "tilelayer") == 0){
+            if (!fireplace_on && layer->name.ptr && strcmp(layer->name.ptr, "fireplace") == 0) {
+                layer = layer->next;
+                continue;
+            }
+            if (!doors && layer->name.ptr && strcmp(layer->name.ptr, "doors") == 0) {
+                layer = layer->next;
+                continue;
+            }
             for (int i = 0; i < layer->data_count; i++){
                 unsigned int raw_gid = (unsigned int)layer->data[i];
-                int gid = cute_tiled_unset_flags(raw_gid); // Extract ID from flags
+                int gid = cute_tiled_unset_flags(raw_gid);
+                if (gid == 0) continue;
 
-                if (gid == 0) continue; // 0 is an empty tile
-
-                // 1. Find the parent tileset for this GID
                 cute_tiled_tileset_t* tileset = map->tiled_map->tilesets;
                 int tileset_idx = 0;
                 while (tileset) {
@@ -79,52 +75,40 @@ void DrawMap(Map* map){
                     tileset_idx++;
                 }
 
-                // 2. Calculate source/dest geometry
                 if (tileset && tileset_idx < map->tileset_count){
                     int id = gid - tileset->firstgid;
                     int tx = (id % tileset->columns) * tileset->tilewidth;
                     int ty = (id / tileset->columns) * tileset->tileheight;
-
                     int x = i % layer->width;
                     int y = i / layer->width;
 
-                    // 3. Handle Bitwise Flip Flags
                     bool flip_h = (raw_gid & CUTE_TILED_FLIPPED_HORIZONTALLY_FLAG) != 0;
                     bool flip_v = (raw_gid & CUTE_TILED_FLIPPED_VERTICALLY_FLAG) != 0;
                     bool flip_d = (raw_gid & CUTE_TILED_FLIPPED_DIAGONALLY_FLAG) != 0;
-
                     float rotation = 0.0f;
 
-                    // Diagonal flip in Tiled indicates rotation + flipping
                     if (flip_d){
-                        if (flip_h && flip_v){
-                            rotation = 90.0f;
-                            flip_h = true; flip_v = false;
-                        } else if (flip_h){
-                            rotation = 90.0f;
-                            flip_h = false; flip_v = false;
-                        } else if (flip_v){
-                            rotation = -90.0f;
-                            flip_h = false; flip_v = false;
-                        } else{
-                            rotation = 90.0f;
-                            flip_h = false; flip_v = true;
-                        }
+                        if (flip_h && flip_v){ rotation = 90.0f; flip_h = true; flip_v = false; }
+                        else if (flip_h){ rotation = 90.0f; flip_h = false; flip_v = false; }
+                        else if (flip_v){ rotation = -90.0f; flip_h = false; flip_v = false; }
+                        else{ rotation = 90.0f; flip_h = false; flip_v = true; }
                     }
 
-                    Rectangle source = {(float)tx, (float)ty, (float)tileset->tilewidth, (float)tileset->tileheight};
+                    Rectangle source = {
+                        (float)tx, 
+                        (float)ty, 
+                        (float)tileset->tilewidth, 
+                        (float)tileset->tileheight
+                    };
                     if (flip_h) source.width = -source.width;
                     if (flip_v) source.height = -source.height;
 
-                    // Destination centered for rotation support
                     Rectangle dest = {
                         (float)(x * tileset->tilewidth) + tileset->tilewidth / 2.0f,
                         (float)(y * tileset->tileheight) + tileset->tileheight / 2.0f,
                         (float)tileset->tilewidth, (float)tileset->tileheight
                     };
-
                     Vector2 origin = {tileset->tilewidth / 2.0f, tileset->tileheight / 2.0f};
-
                     DrawTexturePro(map->textures[tileset_idx], source, dest, origin, rotation, WHITE);
                 }
             }
@@ -134,45 +118,58 @@ void DrawMap(Map* map){
 }
 
 void FreeMap(Map* map){
-    // Free the map textures and the parsed Tiled map object
+    if (!map) return;
     for (int i = 0; i < map->tileset_count; i++){
         UnloadTexture(map->textures[i]);
     }
-    cute_tiled_free_map(map->tiled_map);
+    if (map->tiled_map) cute_tiled_free_map(map->tiled_map);
 }
 
-bool CheckMapCollision(Map* map, Rectangle rect){
+bool CheckMapCollision(Map* map, Rectangle rect, char picked_up_registry[][64], int picked_up_count){
+    if (!map || !map->tiled_map) return false;
     cute_tiled_layer_t* layer = map->tiled_map->layers;
-    // Check for collision with objects in the map
     while (layer){
         if (strcmp(layer->type.ptr, "objectgroup") == 0){
             cute_tiled_object_t* object = layer->objects;
             while (object){
-                Rectangle object_rect = { (float)object->x, (float)object->y, (float)object->width, (float)object->height };
-
-                if (CheckCollisionRecs(rect, object_rect)){
-                    return true;
+                // If it's a named object, check if it's already picked up
+                bool skip = false;
+                if (object->name.ptr && strlen(object->name.ptr) > 0) {
+                    for (int i = 0; i < picked_up_count; i++) {
+                        if (strcmp(picked_up_registry[i], object->name.ptr) == 0) {
+                            skip = true;
+                            break;
+                        }
+                    }
+                }
+                
+                if (!skip) {
+                    Rectangle object_rect = { (float)object->x, (float)object->y, (float)object->width, (float)object->height };
+                    if (CheckCollisionRecs(rect, object_rect)) return true;
                 }
                 object = object->next;
             }
         }
         layer = layer->next;
     }
-
     return false;
 }
 
-Rectangle GetMapObjectBounds(Map* map, const char* name) {
+Rectangle GetMapObjectBounds(Map* map, const char* name){
     if (!map || !map->tiled_map || !name || strlen(name) == 0) return (Rectangle){0, 0, 0, 0};
-    
     cute_tiled_layer_t* layer = map->tiled_map->layers;
-    // Get the visual bounds of a named object from Tiled Object Layers
-    while (layer) {
-        if (strcmp(layer->type.ptr, "objectgroup") == 0) {
+    while (layer){
+        // Get the bounds of the object in Tiled map data
+        if (strcmp(layer->type.ptr, "objectgroup") == 0){
             cute_tiled_object_t* object = layer->objects;
-            while (object) {
-                if (object->name.ptr && strcmp(object->name.ptr, name) == 0) {
-                    return (Rectangle){ (float)object->x, (float)object->y, (float)object->width, (float)object->height };
+            while (object){
+                if (object->name.ptr && strcmp(object->name.ptr, name) == 0){
+                    return (Rectangle){
+                        (float)object->x, 
+                        (float)object->y, 
+                        (float)object->width, 
+                        (float)object->height
+                    };
                 }
                 object = object->next;
             }

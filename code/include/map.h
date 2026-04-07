@@ -36,6 +36,7 @@ typedef struct Map{
     Texture2D textures[MAX_TILESETS];         // VRAM textures for tilesets
     int tileset_count;                        // Number of active textures
     Vector2 spawn_position;                   // Spawn position for the player
+    char current_path[128];                   // Source file path for reloading
 } Map;
 
 /**
@@ -50,8 +51,10 @@ Map InitMap(const char* path);
  * @brief Renders the map layers using Raylib textures.
  *
  * @param map Pointer to the Map struct.
+ * @param fireplace_on Flag to determine if fireplace layer should be drawn.
+ * @param doors Flag to determine if doors layer should be drawn.
  */
-void DrawMap(Map* map);
+void DrawMap(Map* map, bool fireplace_on, bool doors);
 
 /**
  * @brief Deallocates map textures and Tiled memory.
@@ -67,7 +70,7 @@ void FreeMap(Map* map);
  * @param rect Rectangle to check for collision.
  * @return True if collision occurs, false otherwise.
  */
-bool CheckMapCollision(Map* map, Rectangle rect);
+bool CheckMapCollision(Map* map, Rectangle rect, char picked_up_registry[][64], int picked_up_count);
 
 /**
  * @brief Retrieves the visual bounds of a named object from Tiled Object Layers.

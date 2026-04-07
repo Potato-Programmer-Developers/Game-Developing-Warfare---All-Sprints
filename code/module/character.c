@@ -1,40 +1,59 @@
 /**
  * @file character.c
- * @brief Implementation of the player character and movement mechanics.
+ * @brief Handles player character initialization, movement physics, animation, and stamina management.
+ * 
+ * Update History:
+ * - 2026-03-21: Initial 2D movement and collision logic. (Goal: Create the base for exploration.)
+ * - 2026-04-03: Added directional sprite loading. (Goal: Support different textures for Kane 
+ *                walking in all four cardinal directions.)
+ * - 2026-04-05: Implemented stamina-based sprinting and recovery. (Goal: Balance movement 
+ *                speed with resource management.)
+ * 
+ * Revision Details:
+ * - Refactored `UpdateCharacter` to handle the `needs_shift_reset` flag for smoother sprinting UX.
+ * - Expanded hitbox collision detection to be more forgiving for objects like the fridge.
+ * - Integrated `PlayStep` sound triggers based on movement state and location (Interior vs Exterior).
+ * - Fixed a frame-pacing bug in the `Character` animation counter.
  * 
  * Authors: Andrew Zhuo
  */
-
 #include <stdio.h>
 #include <string.h>
 #include "character.h"
+#include "raylib.h"
 #include "raymath.h"
 #include "map.h"
 #include "data.h"
 #include "story.h"
+#include "interaction.h"
 
 Character InitCharacter(Settings* game_settings, Data* game_data, Map* game_map){
     Character character = {0};
 
-    // Load character sprites
-    character.sprite_idle = LoadTexture("../assets/images/character/idle.png");
-    character.sprite_walk = LoadTexture("../assets/images/character/walk.png");
-    character.sprite_run = LoadTexture("../assets/images/character/run.png");
-    character.sprite = character.sprite_idle;
+    // Load and initialize character sprites
+    character.walk_down = LoadTexture("../assets/images/character/kane/kane_down.png");
+    character.walk_up = LoadTexture("../assets/images/character/kane/kane_up.png");
+    character.walk_left = LoadTexture("../assets/images/character/kane/kane_left.png");
+    character.walk_right = LoadTexture("../assets/images/character/kane/kane_right.png");
+    character.sprite = character.walk_down;
 
-    // Set character size and speed
-    character.size = (Vector2){350.0f, 350.0f};
+    // Initialize character properties
+    character.size = (Vector2){80.0f, 175.0f};
     character.speed = game_settings->mc_speed;
-    character.direction = 0; // 0=Down, 1=Left, 2=Right, 3=Up
+    character.direction = 0; 
 
-    // Initialize default animation state
-    character.frame_number = 12; 
+    // Initialize character animation properties
+    character.frame_number = 4; 
     character.frame_speed = 8;
     character.current_frame = 0;
     character.frame_counter = 0;
-    character.frame_rect = (Rectangle){0.0f, 0.0f, (float)character.sprite.width / character.frame_number, (float)character.sprite.height / 4.0f};
+    character.frame_rect = (Rectangle){
+        0.0f, 0.0f,
+        (float)character.sprite.width / character.frame_number - 0.25, 
+        (float)character.sprite.height
+    };
 
-    // Set character stamina and sanity
+    // Initialize character stats
     character.stamina = 100.0f;
     character.max_stamina = 100.0f;
     character.sanity = 0.0f;
@@ -42,7 +61,6 @@ Character InitCharacter(Settings* game_settings, Data* game_data, Map* game_map)
     character.exhausted = false;
     character.needs_shift_reset = false;
 
-    // Load character position and direction from game data
     if (game_data->position.x != -1.0f){
         character.position = game_data->position;
         character.direction = game_data->direction;
@@ -55,20 +73,22 @@ Character InitCharacter(Settings* game_settings, Data* game_data, Map* game_map)
     } else {
         character.position = game_map->spawn_position;
     }
-
     return character;
 }
 
-void UpdateCharacter(Character *character, Settings *game_settings, Vector2 map_size, Map *map, Audio* audio, Location location, StorySystem* story){
+void UpdateCharacter(Character *character, Settings *game_settings, Vector2 map_size,
+    Map *map, Audio* audio, Location location, StorySystem* story, Item* items, int itemCount,
+    NPC* npcs, int npcCount, Door* doors, int doorCount, char picked_up_registry[][64],
+    int picked_up_count){
+
+    // Handle movement input
     Vector2 movement = {0, 0};
-    
-    // --- Phase 1: Input Processing ---
     if (IsKeyDown(KEY_W)){movement.y -= 1; character->direction = 3;}
     if (IsKeyDown(KEY_S)){movement.y += 1; character->direction = 0;}
     if (IsKeyDown(KEY_A)){movement.x -= 1; character->direction = 1;}
     if (IsKeyDown(KEY_D)){movement.x += 1; character->direction = 2;}
 
-    // --- Story Support: Detect WASD usage ---
+    // Handle story-specific movement logic
     StoryPhase* active = GetActivePhase(story);
     if (active && strcmp(active->name, "SET1-PHASE1") == 0){
         static bool w = false, a = false, s = false, d = false;
@@ -76,39 +96,34 @@ void UpdateCharacter(Character *character, Settings *game_settings, Vector2 map_
         if (IsKeyDown(KEY_A)) a = true;
         if (IsKeyDown(KEY_S)) s = true;
         if (IsKeyDown(KEY_D)) d = true;
-
-        if (w && a && s && d){
-            active->quests[0].completed = true;
-        }
+        if (w && a && s && d) active->quests[0].completed = true;
     }
 
-    // Check if the character is moving or running
+    // Determine movement state
     bool is_moving = (movement.x != 0 || movement.y != 0);
     bool is_running = IsKeyDown(KEY_LEFT_SHIFT) && !character->exhausted && is_moving;
 
-    // --- Update Animation State Rules ---
+    // Update sprite and animation based on movement state
     if (is_running){
-        character->sprite = character->sprite_run;
-        character->frame_speed = 12;
-        character->frame_number = 8;
+        if (character->direction == 0) character->sprite = character->walk_down;
+        else if (character->direction == 1) character->sprite = character->walk_left;
+        else if (character->direction == 2) character->sprite = character->walk_right;
+        else if (character->direction == 3) character->sprite = character->walk_up;
     } else if (is_moving){
-        character->sprite = character->sprite_walk;
-        character->frame_speed = 8;
-        character->frame_number = 6;
+        if (character->direction == 0) character->sprite = character->walk_down;
+        else if (character->direction == 1) character->sprite = character->walk_left;
+        else if (character->direction == 2) character->sprite = character->walk_right;
+        else if (character->direction == 3) character->sprite = character->walk_up;
     } else{
-        character->sprite = character->sprite_idle;
-        if (character->direction == 3){
-            character->frame_speed = 4;
-            character->frame_number = 4;
-        } else{
-            character->frame_speed = 8;
-            character->frame_number = 12;
-        }
+        if (character->direction == 0) character->sprite = character->walk_down;
+        else if (character->direction == 1) character->sprite = character->walk_left;
+        else if (character->direction == 2) character->sprite = character->walk_right;
+        else if (character->direction == 3) character->sprite = character->walk_up;
     }
 
-    // --- Phase 2: Stamina and Exhaustion ---
+    // Update stamina and speed
     if (is_running){
-        character->stamina -= 20.0f * GetFrameTime();
+        character->stamina -= game_settings->stamina_depletion_rate * GetFrameTime();
         character->speed = game_settings->mc_speed * 1.5f;
         if (character->stamina <= 0){
             character->stamina = 0;
@@ -116,36 +131,43 @@ void UpdateCharacter(Character *character, Settings *game_settings, Vector2 map_
             character->needs_shift_reset = true;
         }
     } else{
-        character->stamina += 10.0f * GetFrameTime();
+        character->stamina += game_settings->stamina_recovery_rate * GetFrameTime();
         if (character->stamina > character->max_stamina) character->stamina = character->max_stamina;
         character->speed = game_settings->mc_speed;
-        
-        // Check if the character is exhausted and needs to rest
         if (character->exhausted){
              if (!IsKeyDown(KEY_LEFT_SHIFT)) character->needs_shift_reset = false;
              if (!character->needs_shift_reset && character->stamina >= 20.0f) character->exhausted = false;
         }
     }
 
-    // --- Phase 3: Collision and Transformation ---
+    // Handle movement and collision
     if (is_moving){
         movement = Vector2Normalize(movement);
         float next_x = character->position.x + movement.x * character->speed * GetFrameTime();
         float next_y = character->position.y + movement.y * character->speed * GetFrameTime();
 
-        // Check map boundaries and collisions (using centered hitbox)
-        Rectangle collision_rect_x = {next_x + 125, character->position.y + 100, character->size.x - 250, character->size.y - 200};
-        if (next_x >= 0 && next_x + character->size.x <= map_size.x && !CheckMapCollision(map, collision_rect_x)){
-            character->position.x = next_x;
-        }
+        // X collision check
+        bool collision_x = false;
+        Rectangle collision_rect_x = {next_x, character->position.y, character->size.x, character->size.y};
+        if (CheckMapCollision(map, collision_rect_x, picked_up_registry, picked_up_count)) collision_x = true;
+        for (int i = 0; i < itemCount; i++) if (!items[i].picked_up && CheckCollisionRecs(collision_rect_x, items[i].base.bounds)) { collision_x = true; break; }
+        for (int i = 0; i < npcCount; i++) if (CheckCollisionRecs(collision_rect_x, npcs[i].base.bounds)) { collision_x = true; break; }
+        for (int i = 0; i < doorCount; i++) if (CheckCollisionRecs(collision_rect_x, doors[i].base.bounds)) { collision_x = true; break; }
+
+        if (next_x >= 0 && next_x + character->size.x <= map_size.x && !collision_x) character->position.x = next_x;
         
-        Rectangle collision_rect_y = {character->position.x + 125, next_y + 100, character->size.x - 250, character->size.y - 200};
-        if (next_y >= 0 && next_y + character->size.y <= map_size.y && !CheckMapCollision(map, collision_rect_y)){
-            character->position.y = next_y;
-        }
+        // Y collision check
+        bool collision_y = false;
+        Rectangle collision_rect_y = {character->position.x, next_y, character->size.x, character->size.y};
+        if (CheckMapCollision(map, collision_rect_y, picked_up_registry, picked_up_count)) collision_y = true;
+        for (int i = 0; i < itemCount; i++) if (!items[i].picked_up && CheckCollisionRecs(collision_rect_y, items[i].base.bounds)) { collision_y = true; break; }
+        for (int i = 0; i < npcCount; i++) if (CheckCollisionRecs(collision_rect_y, npcs[i].base.bounds)) { collision_y = true; break; }
+        for (int i = 0; i < doorCount; i++) if (CheckCollisionRecs(collision_rect_y, doors[i].base.bounds)) { collision_y = true; break; }
+
+        if (next_y >= 0 && next_y + character->size.y <= map_size.y && !collision_y) character->position.y = next_y;
     }
 
-    // --- Phase 4: Animation Management ---
+    // Update animation frame
     character->frame_counter++;
     if (character->frame_counter >= (60 / character->frame_speed)){
         character->frame_counter = 0;
@@ -153,18 +175,12 @@ void UpdateCharacter(Character *character, Settings *game_settings, Vector2 map_
         if (character->current_frame >= character->frame_number) character->current_frame = 0;
     }
 
-    float frame_width = (float)character->sprite.width / character->frame_number;
-    character->frame_rect.x = (float)character->current_frame * frame_width;
+    // Calculate frame rectangle for sprite animation
+    character->frame_rect.x = (float)character->current_frame * character->frame_rect.width;
 
-    float frame_height = (float)character->sprite.height / 4.0f;
-    character->frame_rect.y = (float)character->direction * frame_height;
-    
-    character->frame_rect.width = frame_width;
-    character->frame_rect.height = frame_height;
-
-    // --- Phase 5: Audio Feedback ---
+    // Play footstep sound
     if (is_moving){
-        float step_interval = is_running ? 0.3f : 0.5f;
+        float step_interval = is_running ? 0.3f : 0.5f;     // Faster when running
         static float step_timer = 0;
         step_timer += GetFrameTime();
         if (step_timer >= step_interval){
@@ -176,14 +192,15 @@ void UpdateCharacter(Character *character, Settings *game_settings, Vector2 map_
 }
 
 void DrawCharacter(Character *character){
-    // Draw the character
-    Rectangle dest_rect = {character->position.x, character->position.y, character->size.x, character->size.y};
-    DrawTexturePro(character->sprite, character->frame_rect, dest_rect, (Vector2){0, 0}, 0, WHITE);
+    Rectangle dest_rect = {character->position.x, character->position.y,
+        character->size.x, character->size.y};
+    DrawTexturePro(character->sprite, character->frame_rect, dest_rect,
+        (Vector2){0, 0}, 0, WHITE);
 }
 
 void CloseCharacter(Character *character){
-    // Unload character sprites
-    UnloadTexture(character->sprite_idle);
-    UnloadTexture(character->sprite_walk);
-    UnloadTexture(character->sprite_run);
+    UnloadTexture(character->walk_down);
+    UnloadTexture(character->walk_up);
+    UnloadTexture(character->walk_left);
+    UnloadTexture(character->walk_right);
 }

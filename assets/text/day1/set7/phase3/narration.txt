@@ -1,0 +1,22 @@
+[PHONE] Mom
+    [MESSAGE] You doing okay sweetie?
+        [CHOICE] I'm fine, mom.
+        [CHOICE] DON'T RESPOND
+    [MESSAGE] I know you're still having\ntrouble sleeping sometimes.
+    [MESSAGE] What happened to Able...\nit wasn't your fault.
+        [CHOICE] I know, mom.
+            [SANITY] +
+            [FULL TEXT] BLACK You fall asleep.
+            [FULL TEXT] BLACK Remember him.
+        [CHOICE] You don't get it.
+            [SANITY] -
+            [FULL TEXT] BLACK You fall asleep.
+            [FULL TEXT] BLACK Don't forget.
+        [CHOICE] I miss him.
+            [FULL TEXT] BLACK You fall asleep.
+            [FULL TEXT] BLACK Remember him.
+        [CHOICE] Stop talking about him.
+            [SANITY] -
+            [FULL TEXT] BLACK You fall asleep.
+            [FULL TEXT] BLACK Don't forget.
+            [FULL TEXT] BLACK You don't deserve to forget.

@@ -1,9 +1,6 @@
 /**
  * @file data.h
- * @brief Structures and functions for managing persistent game data.
- * 
- * This module handles saving and loading player progress (position, inventory, state)
- * to disc, as well as managing the initial state for new games.
+ * @brief Interfaces for game persistence and world-state serialization.
  * 
  * Authors: Andrew Zhuo
  */
@@ -35,6 +32,7 @@ typedef struct Data {
     int set_idx;                                                     // current set index
     int phase_idx;                                                   // current phase index
     int location;                                                    // current location index
+    char map_path[128];                                              // current map file path
 
     // --- NPC Karma ---
     int npc_karma[64];                                               // Persistent karma for all assets
@@ -43,7 +41,8 @@ typedef struct Data {
     bool quest_completion[10];                                       // Completion flags for active phase quests
 
     // --- World State ---
-    bool picked_up_items[100];                                       // Tracking which items have been removed from the world
+    char picked_up_registry[512][64];                                 // Tracking which items have been removed from the world
+    int picked_up_count;                                             // Total number of items collected
 
     // --- Settings ---
     float volume;                                                    // User-defined audio volume
