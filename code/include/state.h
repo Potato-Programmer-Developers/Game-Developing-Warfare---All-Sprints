@@ -5,7 +5,7 @@
  * Defines the various operational modes of the game (Menu, Play, Pause)
  * and the primary update loop dispatcher.
  * 
- * Authors: Steven Kenneth Darwy
+ * Authors: Andrew Zhuo and Steven Kenneth Darwy
  */
 
 #ifndef STATE_H
@@ -29,7 +29,8 @@ typedef enum {
 	PAUSE,             // Interrupted gameplay with menu overlay
 	SETTINGS,          // Configuration sub-menu
 	DIALOGUE_CUTSCENE, // Locked state focused on text interaction
-	PHOTO_CUTSCENE     // Non-interactive animated sequence
+	PHOTO_CUTSCENE,    // Non-interactive animated sequence
+	NARRATION_CUTSCENE // Locked state for interactive narration sequences
 } GameState;
 
 /**

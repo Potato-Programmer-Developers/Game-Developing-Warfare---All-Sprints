@@ -1,15 +1,31 @@
 /**
  * @file phone.c
- * @brief Implementation of the in-game mobile phone notification system.
+ * @brief Manages the in-game mobile device, sequential messaging, interactive replies, and dream sequence hand-offs.
  * 
- * Handles pop-up notifications and a dedicated phone UI for reading
- * and responding to narrative messages.
+ * Update History:
+ * - 2026-03-22: Prototype implementation of "Passive Notifications." (Goal: Provide a way for the 
+ *                player to receive story context without interrupting gameplay.)
+ * - 2026-04-04: Implemented the "Interactive Phone Engine" and Queue. (Goal: Support full-blown 
+ *                conversations on the phone where the player can choose multiple replies, leading 
+ *                 to branching narrative paths.)
+ * - 2026-04-05: Added "Manual UI persistence" and stability fixes. (Goal: Fix the UX issue where 
+ *                the phone would auto-close if no new messages were active, allowing manual use.)
+ * - 2026-04-05: Integrated "Dream Sequence" triggers into choice selection. (Goal: Bridge the 
+ *                phone system to the screen-fade systems for seamless transitions into nightmare scenes.)
+ * 
+ * Revision Details:
+ * - Migrated from a single-message buffer to an 8-message `PhoneMessage` queue in `PhoneSequence`.
+ * - Implemented choice tracking for up to 4 branching paths per message with hover detection.
+ * - Integrated `notif.wav` playback triggers into the phone's internal state machine updates.
+ * - Added a timer-based delay for "Sent" message displays for better narrative pacing.
+ * - Re-wrote `HandlePhoneInput` to maintain the `PHONE_OPENED` state regardless of message queue status.
  * 
  * Authors: Andrew Zhuo
  */
 
 #include "phone.h"
 #include "raylib.h"
+#include "game_context.h"
 #include <string.h>
 
 void InitPhone(Phone *phone){
@@ -22,20 +38,51 @@ void InitPhone(Phone *phone){
     // Initialize phone state and clear message buffers
     phone->state = PHONE_IDLE;
     phone->notif_timer = 0;
+    phone->reply_timer = 0;
     phone->hover_index = -1;
     phone->already_triggered = false;
-    memset(phone->message, 0, sizeof(phone->message));
-    memset(phone->replies, 0, sizeof(phone->replies));
+    memset(phone->sender, 0, sizeof(phone->sender));
+    memset(phone->sequence, 0, sizeof(phone->sequence));
+    phone->sequence_count = 0;
+    phone->current_msg_index = 0;
     memset(phone->selected_reply, 0, sizeof(phone->selected_reply));
 }
 
-void TriggerPhoneNotification(Phone *phone, const char *msg, const char *reply1, const char *reply2){
-    // Trigger a new message notification
-    strncpy(phone->message, msg, sizeof(phone->message) - 1);
-    strncpy(phone->replies[0], reply1, sizeof(phone->replies[0]) - 1);
-    strncpy(phone->replies[1], reply2, sizeof(phone->replies[1]) - 1);
+void TriggerPhoneNotification(Phone *phone, const char *sender, const char *msg, const char *reply1, const char *reply2){
+    // Legacy helper to trigger single message
+    InitPhone(phone);
+    phone->sequence_count = 1;
+    phone->current_msg_index = 0;
+    if (sender) strncpy(phone->sender, sender, sizeof(phone->sender)-1);
+
+    // Set the message and choices
+    PhoneMessage *m = &phone->sequence[0];
+    strncpy(m->text, msg, sizeof(m->text)-1);
+    m->choice_count = 0;
+    if (reply1 && strlen(reply1) > 0) {
+        strncpy(m->choices[0].text, reply1, sizeof(m->choices[0].text)-1);
+        m->choice_count++;
+    }
+    if (reply2 && strlen(reply2) > 0) {
+        strncpy(m->choices[1].text, reply2, sizeof(m->choices[1].text)-1);
+        m->choice_count++;
+    }
 
     // Init 5-second countdown
+    phone->notif_timer = 5.0f;
+    phone->state = PHONE_NOTIFICATION;
+    phone->already_triggered = true;
+}
+
+void TriggerPhoneSequence(Phone *phone, const char *sender, PhoneMessage *msgs, int count) {
+    InitPhone(phone);
+    if (sender) strncpy(phone->sender, sender, sizeof(phone->sender)-1);
+    phone->sequence_count = (count > 8) ? 8 : count;
+    
+    // Copy messages to phone sequence
+    for (int i = 0; i < phone->sequence_count; i++){
+        phone->sequence[i] = msgs[i];
+    }
     phone->notif_timer = 5.0f;
     phone->state = PHONE_NOTIFICATION;
     phone->already_triggered = true;
@@ -48,6 +95,18 @@ void UpdatePhone(Phone *phone, float delta){
         if (phone->notif_timer <= 0){
             phone->state = PHONE_IDLE;
         }
+    } else if (phone->state == PHONE_SHOWING_REPLY) {
+        // Wait briefly after choosing a reply before showing the next message
+        phone->reply_timer += delta;
+        if (phone->reply_timer >= 1.5f) {
+            phone->reply_timer = 0;
+            phone->current_msg_index++;
+            if (phone->current_msg_index >= phone->sequence_count) {
+                 phone->state = PHONE_IDLE; // Sequence complete
+            } else {
+                 phone->state = PHONE_OPENED; // Show next message
+            }
+        }
     }
 }
 
@@ -59,7 +118,7 @@ void DrawPhone(Phone *phone){
     int screenHeight = GetScreenHeight();
 
     if (phone->state == PHONE_NOTIFICATION){
-        // --- Pop-up Notification (Bottom Right) ---
+        // Pop-up Notification (Bottom Right)
         int margin = 20;
         Rectangle box = {
             (float)screenWidth - phone->notif_width - margin,
@@ -71,7 +130,7 @@ void DrawPhone(Phone *phone){
         DrawRectangleLinesEx(box, 2, GOLD);
         DrawText("New Message! Press 'R'", box.x + 10, box.y + 20, 20, WHITE);
     } else if (phone->state == PHONE_OPENED || phone->state == PHONE_SHOWING_REPLY){
-        // --- Full Phone Interface (Center) ---
+        // Full Phone Interface (Center)
         phone->phoneBox = (Rectangle){
             (float)screenWidth / 2.0f - phone->phone_width / 2.0f,
             (float)screenHeight / 2.0f - phone->phone_height / 2.0f,
@@ -89,33 +148,47 @@ void DrawPhone(Phone *phone){
         // Screen area
         Rectangle screen = {phone->phoneBox.x + 10, phone->phoneBox.y + 50, phone->phoneBox.width - 20, phone->phoneBox.height - 180};
         DrawRectangleRec(screen, Fade(SKYBLUE, 0.2f));
-        DrawText("Sender:", screen.x + 20, screen.y + 20, 15, WHITE);
-        DrawText(phone->message, screen.x + 20, screen.y + 40, 20, WHITE);
 
-        if (phone->state == PHONE_OPENED){
-            int btnHeight = 50;
-            Rectangle btn1 = {phone->phoneBox.x + 20, phone->phoneBox.y + phone->phoneBox.height - 120, phone->phoneBox.width - 40, (float)btnHeight};
-            Rectangle btn2 = {phone->phoneBox.x + 20, phone->phoneBox.y + phone->phoneBox.height - 60, phone->phoneBox.width - 40, (float)btnHeight};
+        // Get the current message
+        PhoneMessage *cm = NULL;
+        if (phone->current_msg_index < phone->sequence_count){
+            cm = &phone->sequence[phone->current_msg_index];
+        }
 
-            // Button 1
-            DrawRectangleRec(btn1, (phone->hover_index == 0) ? LIGHTGRAY : GRAY);
-            DrawRectangleLinesEx(btn1, 2, (phone->hover_index == 0) ? YELLOW : BLACK);
-            DrawText(TextFormat("1: %s", phone->replies[0]), btn1.x + 10, btn1.y + 15, 20, BLACK);
+        // Draw the current message
+        if (cm){
+            DrawText("Sender:", screen.x + 20, screen.y + 20, 15, WHITE);
+            DrawText(phone->sender, screen.x + 80, screen.y + 20, 15, GOLD);
+            DrawText(cm->text, screen.x + 20, screen.y + 40, 20, WHITE);
+        }
 
-            // Button 2
-            DrawRectangleRec(btn2, (phone->hover_index == 1) ? LIGHTGRAY : GRAY);
-            DrawRectangleLinesEx(btn2, 2, (phone->hover_index == 1) ? YELLOW : BLACK);
-            DrawText(TextFormat("2: %s", phone->replies[1]), btn2.x + 10, btn2.y + 15, 20, BLACK);
+        // Draw choices if in OPENED state
+        if (phone->state == PHONE_OPENED && cm){
+            int btnHeight = 40;
+            int margin = 5;
+            for (int i = 0; i < cm->choice_count; i++){
+                Rectangle btn = {
+                    phone->phoneBox.x + 20,
+                    phone->phoneBox.y + phone->phoneBox.height - 180 + (i * (btnHeight + margin)),
+                    phone->phoneBox.width - 40,
+                    (float)btnHeight
+                };
+                DrawRectangleRec(btn, (phone->hover_index == i) ? LIGHTGRAY : GRAY);
+                DrawRectangleLinesEx(btn, 2, (phone->hover_index == i) ? YELLOW : BLACK);
+                DrawText(TextFormat("%d: %s", i + 1, cm->choices[i].text), btn.x + 10, btn.y + 10, 20, BLACK);
+            }
         } else if (phone->state == PHONE_SHOWING_REPLY){
             // Narrative display of sent message
-            DrawText("Me:", screen.x + 20, screen.y + 100, 15, GREEN);
-            DrawText(phone->selected_reply, screen.x + 20, screen.y + 120, 20, WHITE);
+            if (strcmp(phone->selected_reply, "DON'T RESPOND") != 0){
+                DrawText("Me:", screen.x + 20, screen.y + 100, 15, GREEN);
+                DrawText(phone->selected_reply, screen.x + 20, screen.y + 120, 20, WHITE);
+            }
             DrawText("Press 'R' to close", phone->phoneBox.x + 20, phone->phoneBox.y + phone->phoneBox.height - 40, 15, GRAY);
         }
     }
 }
 
-void HandlePhoneInput(Phone *phone){
+void HandlePhoneInput(Phone *phone, struct GameContext *ctx){
     // Toggle Open/Close
     if (IsKeyPressed(KEY_R)){
         if (phone->state == PHONE_IDLE || phone->state == PHONE_NOTIFICATION) {
@@ -129,35 +202,75 @@ void HandlePhoneInput(Phone *phone){
     if (phone->state == PHONE_IDLE) return;
 
     if (phone->state == PHONE_OPENED){
-        // Reply buttons layout (must match DrawPhone)
-        int btnHeight = 50;
-        Rectangle btn1 = {phone->phoneBox.x + 20, phone->phoneBox.y + phone->phoneBox.height - 120, phone->phoneBox.width - 40, (float)btnHeight};
-        Rectangle btn2 = {phone->phoneBox.x + 20, phone->phoneBox.y + phone->phoneBox.height - 60, phone->phoneBox.width - 40, (float)btnHeight};
+        PhoneMessage *cm = NULL;
 
-        // Handle Hover Selection
+        // Get the current message
+        if (phone->current_msg_index < phone->sequence_count){
+            cm = &phone->sequence[phone->current_msg_index];
+        }
+
+        if (!cm){
+            // Stay in OPENED state even if no message is active
+            // This allows the player to manually open the phone in the tutorial
+            return;
+        }
+
+        if (cm->choice_count == 0){
+            // Auto advance since no choices
+            phone->reply_timer = 0;
+            phone->selected_reply[0] = '\0';
+            phone->state = PHONE_SHOWING_REPLY;
+            return;
+        }
+
+        int btnHeight = 40;
+        int margin = 5;
         Vector2 mousePos = GetMousePosition();
-        if (CheckCollisionPointRec(mousePos, btn1)) phone->hover_index = 0;
-        else if (CheckCollisionPointRec(mousePos, btn2)) phone->hover_index = 1;
-        else phone->hover_index = -1;
+        phone->hover_index = -1;
 
-        // Handle Selection (Click or Keys 1/2)
+        // Check for hover
+        for (int i = 0; i < cm->choice_count; i++){
+            Rectangle btn = {
+                phone->phoneBox.x + 20,
+                phone->phoneBox.y + phone->phoneBox.height - 180 + (i * (btnHeight + margin)),
+                phone->phoneBox.width - 40,
+                (float)btnHeight
+            };
+            if (CheckCollisionPointRec(mousePos, btn)){
+                phone->hover_index = i;
+            }
+        }
+
+        // Handle Selection (Click or Keys 1/2/3/4)
         bool selected = false;
         int choice = -1;
 
-        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && phone->hover_index != -1) {
-            selected = true;
-            choice = phone->hover_index;
-        } else if (IsKeyPressed(KEY_ONE)) {
-            selected = true;
-            choice = 0;
-        } else if (IsKeyPressed(KEY_TWO)) {
-            selected = true;
-            choice = 1;
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && phone->hover_index != -1){
+            selected = true; choice = phone->hover_index;
+        } else if (IsKeyPressed(KEY_ONE) && cm->choice_count >= 1){
+            selected = true; choice = 0;
+        } else if (IsKeyPressed(KEY_TWO) && cm->choice_count >= 2){
+            selected = true; choice = 1;
+        } else if (IsKeyPressed(KEY_THREE) && cm->choice_count >= 3){
+            selected = true; choice = 2;
+        } else if (IsKeyPressed(KEY_FOUR) && cm->choice_count >= 4){
+            selected = true; choice = 3;
         }
 
-        if (selected) {
-            strncpy(phone->selected_reply, phone->replies[choice], sizeof(phone->selected_reply) - 1);
+        // Handle Selection
+        if (selected){
+            strncpy(phone->selected_reply, cm->choices[choice].text, sizeof(phone->selected_reply) - 1);
             phone->state = PHONE_SHOWING_REPLY;
+            phone->reply_timer = 0; // reset wait timer
+            
+            // If the choice had dream lines, copy them to GameContext
+            if (ctx && cm->choices[choice].dream_count > 0){
+                ctx->dream_count = cm->choices[choice].dream_count;
+                ctx->dream_current = 0;
+                for (int i = 0; i < ctx->dream_count; i++){
+                    strncpy(ctx->dream_lines[i], cm->choices[choice].dream_lines[i], 127);
+                }
+            }
         }
     }
 }

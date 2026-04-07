@@ -15,14 +15,6 @@
 #include "story.h"
 
 /**
- * @brief Loads assets for a specific location.
- * 
- * @param location The location to load assets for.
- * @param context The game context to load assets into.
- */
-void LoadLocationAssets(Location location, GameContext* context);
-
-/**
  * @brief Loads assets for a specific phase.
  * 
  * @param phase The phase to load assets for.

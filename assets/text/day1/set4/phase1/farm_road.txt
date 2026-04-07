@@ -1,0 +1,1 @@
+[FADE] BLACK ../assets/map/map_farm/FARM.json FARM

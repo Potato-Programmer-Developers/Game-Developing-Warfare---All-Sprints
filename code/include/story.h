@@ -1,8 +1,23 @@
 /**
  * @file story.h
- * @brief Defines the data structures for story sets and phases.
+ * @brief Defines the core data structures and API for story sets, phases, and conditions.
  * 
- * This file is included by other modules that need to use the story system.
+ * Update History:
+ * - 2026-03-20: Initial definition of `StorySet` and `StoryPhase`. (Goal: Establish the 
+ *                architectural foundation for a phase-based narrative system.)
+ * - 2026-04-03: Expanded `StoryCondition` types to include `CONDITION_PHONE_COMPLETE`. (Goal: Support 
+ *                bi-directional communication between the story engine and external UI modules.)
+ * - 2026-04-05: Added `phone_pending` and `narration_pending` flags to the `StorySystem` struct. (Goal: 
+ *                Prevent race conditions and visual overlapping by deferring narrative prompts until 
+ *                camera/map transitions are complete.)
+ * - 2026-04-05: Integrated persistent state monitoring to the `StorySystem`. (Goal: Enable 
+ *                seamless cross-day state tracking and automated file loading.)
+ * 
+ * Revision Details:
+ * - Added `StoryConditionType` enum entries for `CONDITION_DREAM_COMPLETE` and `CONDITION_AUTO_COMPLETE`.
+ * - Expanded `StoryCondition` struct to include a `met` flag for reliable state polling.
+ * - Updated `StorySystem` to store the `day_folder` string for relative asset pathing.
+ * - Prototyped `ReplaceNewlines` to be shared across narration and phone modules.
  * 
  * Authors: Andrew Zhuo
  */
@@ -11,12 +26,14 @@
 #define STORY_H
 
 #include "quest.h"
+#include "phone.h"
 
 struct GameContext;
+struct Audio;
 
-#define MAX_QUESTS_PER_PHASE 10
-#define MAX_PHASES_PER_SET 10
-#define MAX_SETS_PER_DAY 20
+#define MAX_QUESTS_PER_PHASE 5
+#define MAX_PHASES_PER_SET 5
+#define MAX_SETS_PER_DAY 10
 
 /**
  * @brief Types of conditions that can end a story phase.
@@ -26,6 +43,10 @@ typedef enum StoryConditionType {
     CONDITION_INTERACT_OBJECT,        // Advance when specific object interacted
     CONDITION_TIME_PASS,              // Advance when time passes
     CONDITION_ENTER_LOCATION,         // Advance when entering a specific location
+    CONDITION_COLLECT_OBJECTS,        // Advance when a number of unique objects are interacted with
+    CONDITION_NARRATION_COMPLETE,     // Advance when all narration lines and choices are done
+    CONDITION_PHONE_COMPLETE,         // Advance when the interactive phone dialogue finishes
+    CONDITION_DREAM_COMPLETE,         // Advance when the dream text sequence finishes
 } StoryConditionType;
 
 /**
@@ -47,6 +68,8 @@ typedef struct StoryCondition {
     StoryConditionType type;         // Type of condition
     char target_id[64];              // e.g., "fridge" or "farmer"
     float target_value;              // e.g., timer duration or expected choice index
+    bool met;                        // Whether this specific condition is satisfied
+    int current_count;               // Tracker for COLLECTION conditions
 } StoryCondition;
 
 /**
@@ -58,6 +81,25 @@ typedef struct {
 } PhaseInteractable;
 
 /**
+ * @brief A single narration line entry.
+ */
+typedef struct {
+    char text[128];          // Display text or sound name
+    int type;                // 0=text, 1=play_sound, 2=loop_start, 3=phone_start
+} NarrationLine;
+
+/**
+ * @brief A choice inside a narration loop block.
+ */
+typedef struct {
+    char label[64];          // Choice text
+    char response[128];      // Response after choosing
+    char state_key[32];      // GameContext field name to mutate
+    bool state_value;        // Value to set
+    bool completed;          // Has this choice been picked?
+} NarrationChoice;
+
+/**
  * @brief A single narrative step with its own objectives and exit condition.
  */
 typedef struct StoryPhase {
@@ -67,7 +109,16 @@ typedef struct StoryPhase {
     int quest_count;                         // Number of quests in the phase
     PhaseInteractable interactables[20];     // Interactable objects in the phase
     int interactable_count;                  // Number of interactable objects in the phase
-    StoryCondition end_condition;            // Condition to end the phase
+    StoryCondition end_conditions[5];        // Multiple conditions to end the phase
+    int condition_count;                     // Number of active conditions
+    NarrationLine narration_lines[20];       // Interactive narration lines
+    int narration_count;                     // Number of narration lines
+    NarrationChoice narration_choices[8];    // Choices inside LOOP blocks
+    int narration_choice_count;              // Number of loop choices
+    // Per-phase phone message data
+    char phone_sender[64];                   // Phone sender for this phase
+    PhoneMessage phone_messages[8];          // Phone messages for this phase
+    int phone_message_count;                 // Number of phone messages
 } StoryPhase;
 
 /**
@@ -75,8 +126,8 @@ typedef struct StoryPhase {
  */
 typedef struct StorySet {
     char name[64];                             // Name of the set
-    StoryPhase phases[MAX_PHASES_PER_SET];     // Phases in the set
     int phase_count;                           // Number of phases in the set
+    StoryPhase phases[MAX_PHASES_PER_SET];     // Phases in the set
 } StorySet;
 
 /**
@@ -89,6 +140,23 @@ typedef struct StorySystem {
     int current_phase_idx;                  // Index of the current phase
     float phase_timer;                      // Timer for TIME_PASS conditions
     char day_folder[32];                    // e.g., "day1"
+    
+    // Interactive narration playback state
+    bool narration_active;                  // Flag for active narration
+    int narration_current_line;             // Current narration line index
+    bool narration_in_loop;                 // Are we in the LOOP choice block?
+    bool narration_showing_response;        // Showing a choice response?
+    char narration_response_text[128];      // Current response text being shown
+    bool narration_pending;                 // Narration waiting for fade/camera to settle
+
+    // Phone playback state
+    int phone_current_index;                // Currently showing message index
+    float phone_message_timer;              // Timer for auto-advance
+    bool phone_sequence_active;             // Is a multi-message sequence playing?
+    char phone_active_sender[64];           // Sender for current phone sequence
+    PhoneMessage phone_active_messages[8];  // Messages for current phone sequence
+    int phone_active_count;                 // Message count for current sequence
+    bool phone_pending;                     // Flag to start interactive phone sequence
 } StorySystem;
 
 /**
@@ -121,5 +189,14 @@ void AdvanceStory(struct GameContext* game_context);
  * @return StoryPhase* Pointer to the current active phase.
  */
 StoryPhase* GetActivePhase(StorySystem* story);
+
+/**
+ * @brief Handles player input during NARRATION_CUTSCENE state.
+ *
+ * @param game_context Pointer to the GameContext.
+ * @param game_state Pointer to the current game state.
+ * @param game_audio Pointer to the audio system for sound effects.
+ */
+void HandleNarrationInput(struct GameContext* game_context, int* game_state, struct Audio* game_audio);
 
 #endif

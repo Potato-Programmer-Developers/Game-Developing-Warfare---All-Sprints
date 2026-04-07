@@ -1,0 +1,2 @@
+[CHOICE1] [DEPOSIT:big_logs] Put the big logs here.
+[CHOICE2] [DEPOSIT:small_logs] Put the small logs here.

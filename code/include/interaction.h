@@ -1,9 +1,20 @@
 /**
  * @file interaction.h
- * @brief Function prototypes and structures for the interaction system.
+ * @brief Interfaces for player interaction, world objects, and story-driven triggers.
  * 
- * This file contains the definition of the Interactable struct, which is used to store
- * all the data that needs to be passed between different systems in the game.
+ * Update History:
+ * - 2026-03-25: Initial definition of `Interactable`, `NPC`, and `Item` types. (Goal: Establish 
+ *                a unified interface for world interaction.)
+ * - 2026-04-03: Added `door` interaction structures for map transitions. (Goal: Support 
+ *                moving between EXERTERIOR and INTERIOR maps.)
+ * - 2026-04-05: Integrated session persistence for pickups and quest completion. (Goal: Allow 
+ *                interaction results to influence the story phase and save-state.)
+ * 
+ * Revision Details:
+ * - Defined `InteractableType` for `NPC`, `ITEM`, and `DOOR` classification.
+ * - Expanded `Interactable` struct to include an `interactable_id` for story string matching.
+ * - Added `Item` struct with `is_pickup` and `picked_up` status tracking.
+ * - Created `CheckInteractable` to take a generic `playerHitbox` for flexible collision detection.
  * 
  * Authors: Andrew Zhuo and Cornelius Jabez Lim
  */
@@ -133,9 +144,14 @@ void InteractWithObject(
  * @param door Pointer to the door to interact with.
  * @param map Pointer to the map.
  * @param player Pointer to the player.
+ * @param game_dialogue Pointer to the dialogue system.
+ * @param game_state Pointer to the game state.
  * @param game_context Pointer to the game context. 
  */
-void InteractWithDoor(Door *door, Map *map, Character *player, struct GameContext *game_context);
+void InteractWithDoor(
+    Door *door, Map *map, Character *player, Dialogue *game_dialogue,
+    GameState *game_state, struct GameContext *game_context
+);
 
 /**
  * @brief Internal handler for NPC interaction (starts dialogue).
@@ -145,7 +161,10 @@ void InteractWithDoor(Door *door, Map *map, Character *player, struct GameContex
  * @param game_state Pointer to the game state.
  * @param game_context Pointer to the game context.
  */
-void InteractWithNPC(NPC *npc, Dialogue *game_dialogue, GameState *game_state, struct GameContext *game_context);
+void InteractWithNPC(
+    NPC *npc, Dialogue *game_dialogue, GameState *game_state,
+    struct GameContext *game_context
+);
 
 /**
  * @brief Internal handler for Item interaction (adds to inventory or shows text).
@@ -156,6 +175,9 @@ void InteractWithNPC(NPC *npc, Dialogue *game_dialogue, GameState *game_state, s
  * @param player Pointer to the player.
  * @param game_context Pointer to the game context.
  */
-void InteractWithItem(Item *item, Dialogue *game_dialogue, GameState *game_state, Character *player, struct GameContext *game_context);
+void InteractWithItem(
+    Item *item, Dialogue *game_dialogue, GameState *game_state, Character *player,
+    struct GameContext *game_context
+);
 
 #endif

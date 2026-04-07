@@ -20,11 +20,9 @@
  */
 typedef struct Audio {
     Music bg_music;             // Main background music stream
-    Sound scream_sound;         // Dramatic scream sound effect
     Sound step_outdoor;         // Walking sound on outdoor surfaces
     Sound step_indoor;          // Walking sound on indoor surfaces
     Sound notif_sound;          // Phone notification alert sound
-    Music cutscene_music;       // Specialized music for animated cutscenes
 } Audio;
 
 /**
@@ -48,13 +46,6 @@ void UpdateAudio(Audio* audio);
  * @param audio Pointer to the audio container to clean up.
  */
 void CloseAudio(Audio* audio);
-
-/**
- * @brief Plays the scream sound effect immediately.
- *
- * @param audio Pointer to the audio container.
- */
-void PlayScream(Audio* audio);
 
 /**
  * @brief Plays a footstep sound based on the player's environment.
