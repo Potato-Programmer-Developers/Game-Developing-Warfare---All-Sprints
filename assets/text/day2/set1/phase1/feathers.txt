@@ -1,2 +1,2 @@
 [RESPONSE] Do we have chickens here?
-[RESPONSE] Note down clue
+[RESPONSE] Note down clue | 1

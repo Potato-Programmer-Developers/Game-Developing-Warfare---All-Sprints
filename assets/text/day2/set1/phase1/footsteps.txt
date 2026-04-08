@@ -1,2 +1,2 @@
 [RESPONSE] These are footsteps.
-[RESPONSE] Note down clue
+[RESPONSE] Note down clue | 1

@@ -1,0 +1,33 @@
+[RESPONSE] You wake up frantically.
+[IF] ANY MISSED
+    [IF] DOOR MISSED
+        [PLAY] DOOR_BANGING
+        [SANITY] --
+        [RESPONSE] You immediately start locking the door
+    [ELSE IF] WINDOW_MISSED
+        [PLAY] WINDOW_SCRAPING
+        [SANITY] --
+        [RESPONSE] You immediately start locking the windows
+    [PLAY] CHIMNEY_RUSTLING
+    [IF] FIREPLACE_ON AND HAS_ROOM_KEYS
+        [RESPONSE] You hear something rustling in the chimney. You locked the doors, it should be fine.
+    [ELSE IF] NOT FIREPLACE_ON AND HAS_ROOM_KEYS
+        [SANITY] -
+        [RESPONSE] You hear something rustling in the chimney.
+    [ELSE IF] NOT FIREPLACE_ON AND NOT HAS_ROOM_KEYS
+        [SANITY] -
+        [RESPONSE] You remember you forgot the keys. You realize you left them at the table. You take the keys and run to the bedroom and lock the door.
+    [ELSE IF] FIREPLACE_ON AND NOT HAS_ROOM_KEYS
+        [RESPONSE] You remember you forgot the keys. Everything else is locked, and the fireplace is on. You should be okay.
+[ELSE]
+    [IF] DOOR LAST
+        [SANITY] -
+        [PLAY] FOOTSTEP
+        [RESPONSE] You just locked the door.
+    [ELSE IF] WINDOW LAST
+        [SANITY] -
+        [RESPONSE] You just locked the windows. You see a shadowy figure in the distance, just leaving your sight.
+    [ELSE IF] FIREPLACE LAST
+        [SANITY] +
+    [ELSE IF] KEYS LAST
+        [SANITY] +
