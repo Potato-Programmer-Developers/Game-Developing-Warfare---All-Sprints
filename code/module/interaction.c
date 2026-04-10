@@ -92,6 +92,9 @@ static bool IsAllQuestsCompleted(StoryPhase* phase){
 static bool IsOtherQuestsPending(StoryPhase* phase, const char* target_id){
     if (!phase) return false;
     for (int i = 0; i < phase->condition_count; i++){
+        // ENTER_LOCATION conditions are fulfilled BY using a door, so never block doors for them
+        if (phase->end_conditions[i].type == CONDITION_ENTER_LOCATION) continue;
+        
         // If this condition is NOT about our current target, and its associated quest is NOT done
         if (strcmp(phase->end_conditions[i].target_id, target_id) != 0){
             if (i < phase->quest_count && !phase->quests[i].completed && strstr(phase->quests[i].description, "Explore") == NULL) {
@@ -187,7 +190,7 @@ static void UpdateStoryConditions(struct GameContext* game_context, Dialogue* ga
  * @param dialogue Pointer to the dialogue system.
  * @param node_idx Index of the dialogue node to prepare.
  */
-static void PrepareNodeText(Dialogue* dialogue, int node_idx){
+static void PrepareNodeText(Dialogue* dialogue, int node_idx, struct GameContext* ctx){
     if (node_idx < 0 || node_idx >= MAX_DIALOGUE_LINES) return;
     DialogueNode* node = &dialogue->nodes[node_idx];
     if (node->response_count == 0){
@@ -197,17 +200,57 @@ static void PrepareNodeText(Dialogue* dialogue, int node_idx){
     // If the node is a conversation, copy all responses to the lines array
     if (node->is_conversation){
         for (int i = 0; i < node->response_count; i++){
+            // For conversations, we might just mark them as used
+            if (node->response_once[i]) MarkResponseUsed(ctx, node->responses[i]);
             strncpy(dialogue->lines[i], node->responses[i], MAX_LINE_LENGTH - 1);
         }
         dialogue->line_count = node->response_count;
         dialogue->current_line = 0;
     } else{
         // If the node is not a conversation, copy a random response to the lines array
+        int valid_indices[10];
+        int valid_count = 0;
+        for (int i = 0; i < node->response_count; i++){
+            if (!node->response_once[i] || !IsResponseUsed(ctx, node->responses[i])) {
+                valid_indices[valid_count++] = i;
+            }
+        }
         int r_idx = 0;
-        if (node->response_count > 1) r_idx = rand() % node->response_count;
+        if (valid_count > 0) {
+            if (valid_count > 1) r_idx = valid_indices[rand() % valid_count];
+            else r_idx = valid_indices[0];
+        } else {
+            // Fallback if all once-lines are used
+            r_idx = rand() % node->response_count;
+        }
+        if (node->response_once[r_idx]) MarkResponseUsed(ctx, node->responses[r_idx]);
         strncpy(dialogue->lines[0], node->responses[r_idx], MAX_LINE_LENGTH - 1);
         dialogue->line_count = 1;
         dialogue->current_line = 0;
+    }
+}
+
+static void ApplyNodeSideEffects(DialogueNode* node, struct GameContext* context, const char* interactable_id) {
+    if (!node || !context) return;
+    if (node->sanity_change != 0){
+        context->player->sanity += node->sanity_change;
+        if (context->player->sanity < 0) context->player->sanity = 0;
+        if (context->player->sanity > 100) context->player->sanity = 100;
+    }
+    if (node->karma_change != 0) UpdateAssetKarma(interactable_id, node->karma_change);
+    if (node->plant_seed_type > 0 && interactable_id) {
+        for (int i = 0; i < 18; i++) {
+            if (context->pot_registry[i].pot_id[0] == '\0') {
+                strncpy(context->pot_registry[i].pot_id, interactable_id, 63);
+                context->pot_registry[i].is_planted = true;
+                context->pot_registry[i].seed_type = node->plant_seed_type;
+                break;
+            } else if (strcmp(context->pot_registry[i].pot_id, interactable_id) == 0) {
+                context->pot_registry[i].is_planted = true;
+                context->pot_registry[i].seed_type = node->plant_seed_type;
+                break;
+            }
+        }
     }
 }
 
@@ -222,11 +265,11 @@ static void PrepareNodeText(Dialogue* dialogue, int node_idx){
  */
 static void StartDialogue(const char* path, Dialogue* dialogue, GameState* state, struct GameContext* ctx, const char* interactable_id){
     if (!path || !dialogue || !state || !ctx) return;
-    LoadInteraction(path, dialogue, ctx);
+    LoadInteraction(path, dialogue, ctx, interactable_id);
     // If the dialogue has nodes, start the dialogue
     if (dialogue->node_count > 0){
         dialogue->current_node_idx = 0;
-        PrepareNodeText(dialogue, 0);
+        PrepareNodeText(dialogue, 0, ctx);
         dialogue->selected_choice = -1;
         dialogue->pending_target_map[0] = '\0';
         *state = DIALOGUE_CUTSCENE;
@@ -235,6 +278,7 @@ static void StartDialogue(const char* path, Dialogue* dialogue, GameState* state
             strncpy(current_interactable_id, interactable_id, 63);
             RegisterMeetNPC(ctx, interactable_id);
         }
+        ApplyNodeSideEffects(&dialogue->nodes[0], ctx, current_interactable_id);
         // If the node has a target map, set the pending target map
         if (dialogue->nodes[0].target_map[0] != '\0'){
             strncpy(dialogue->pending_fade_color, dialogue->nodes[0].fade_color, 31);
@@ -303,14 +347,9 @@ void InteractWithNPC(NPC *npc, Dialogue* game_dialogue, GameState* game_state, s
 
                 if (next_node_idx != -1){
                     game_dialogue->current_node_idx = next_node_idx;
-                    PrepareNodeText(game_dialogue, next_node_idx);
+                    PrepareNodeText(game_dialogue, next_node_idx, game_context);
                     DialogueNode* next_node = &game_dialogue->nodes[next_node_idx];
-                    if (next_node->sanity_change != 0){
-                        game_context->player->sanity += next_node->sanity_change;
-                        if (game_context->player->sanity < 0) game_context->player->sanity = 0;
-                        if (game_context->player->sanity > 100) game_context->player->sanity = 100;
-                    }
-                    if (next_node->karma_change != 0) UpdateAssetKarma(current_interactable_id, next_node->karma_change);
+                    ApplyNodeSideEffects(next_node, game_context, current_interactable_id);
                     UpdateStoryConditions(game_context, game_dialogue, current_interactable_id);
                     if (next_node->target_map[0] != '\0'){
                         strncpy(game_dialogue->pending_fade_color, next_node->fade_color, 31);
@@ -336,7 +375,8 @@ void InteractWithNPC(NPC *npc, Dialogue* game_dialogue, GameState* game_state, s
                     if (current_node->choice_count == 0){
                         if (current_node->next_node != -1){
                             game_dialogue->current_node_idx = current_node->next_node;
-                            PrepareNodeText(game_dialogue, current_node->next_node);
+                            PrepareNodeText(game_dialogue, current_node->next_node, game_context);
+                            ApplyNodeSideEffects(&game_dialogue->nodes[current_node->next_node], game_context, current_interactable_id);
                         } else{
                             if (current_node->triggers_phone) game_context->story.narration_pending = true;
                             UpdateStoryConditions(game_context, game_dialogue, current_interactable_id);
@@ -411,12 +451,18 @@ void InteractWithDoor(Door *door, Map *map, Character *player, Dialogue *game_di
     StoryPhase* active = GetActivePhase(&game_context->story);
     if (IsOtherQuestsPending(active, door->base.interactable_id)) return;
 
-    // If the door has a dialogue path, start the dialogue
-    if (FileExists(door->base.dialoguePath)){
-        StartDialogue(door->base.dialoguePath, game_dialogue, game_state, game_context, door->base.interactable_id);
-    } else{
-        StartFadeTransition(game_context->game_scene, BLACK, door->targetMapPath, "DEFAULT");
+    // Determine target location string based on the door's targetLocation enum
+    const char* target_loc = "INTERIOR"; // Default
+    switch (door->targetLocation) {
+        case APARTMENT: target_loc = "APARTMENT"; break;
+        case EXTERIOR:  target_loc = "EXTERIOR"; break;
+        case INTERIOR:  target_loc = "INTERIOR"; break;
+        case FARM:      target_loc = "FARM"; break;
+        case FOREST:    target_loc = "FOREST"; break;
     }
+
+    // Always transition silently using the door's hardcoded target
+    StartFadeTransition(game_context->game_scene, BLACK, door->targetMapPath, target_loc, NULL);
 }
 
 void LoadNPCs(NPC npcs[], int count){

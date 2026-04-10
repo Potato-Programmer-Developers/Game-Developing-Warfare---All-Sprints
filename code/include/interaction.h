@@ -71,6 +71,7 @@ typedef struct Item {
     Interactable base;             // Base interactable properties
     bool picked_up;                // Persistence flag for collectibles
     bool is_pickup;                // If true, adds to inventory. If false, just shows text.
+    bool no_collision;             // If true, player can walk through this item (e.g., clue items)
 } Item;
 
 /**

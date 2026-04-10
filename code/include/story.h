@@ -15,6 +15,13 @@
  * - 2026-04-07: Implemented `narration_has_started` Tracking. (Goal: Ensure that 
  *                story phases ending in `NARRATION_COMPLETE` do not auto-skip before 
  *                the narration has actually been triggered.)
+ * - 2026-04-10: Implemented `narration_loop_broken` flag for Day 2 SET4-PHASE1. (Goal: Allow a
+ *                `[BREAK]` choice to end the narration loop early and satisfy `CONDITION_NARRATION_COMPLETE`
+ *                without requiring all loop choices to be completed, preserving un-selected choices as
+ *                `false` to reflect the player's actual decisions for downstream branching logic.)
+ * - 2026-04-10: Expanded `StoryPhase` phone data capacity from 8 to 32 messages. (Goal: Support the
+ *                deeply nested branching conversation tree format introduced in Day 2 SET4-PHASE3,
+ *                where indentation-driven message hierarchies create many message nodes in a flat array.)
  * 
  * Revision Details:
  * - Added `StoryConditionType` enum entries for `CONDITION_DREAM_COMPLETE` and `CONDITION_AUTO_COMPLETE`.
@@ -23,6 +30,13 @@
  * - Prototyped `ReplaceNewlines` to be shared across narration and phone modules.
  * - Added `bool narration_has_started` to the `StorySystem` struct.
  * - Updated story condition logic to require a "started" state before marking as "complete".
+ * - Added `bool narration_loop_broken` to `StorySystem` to track when a narration loop has been
+ *    intentionally terminated via a `[BREAK]` choice. This flag bypasses the all-choices-completed
+ *    requirement in `CONDITION_NARRATION_COMPLETE` evaluation, enabling early phase advancement.
+ * - Expanded `StoryPhase.phone_messages` from 8 to 32 entries to accommodate branching conversation
+ *    trees parsed from deeply nested `narration.txt` files.
+ * - Expanded `StorySystem.phone_active_messages` from 8 to 32 entries to match the increased
+ *    phase capacity during runtime phone playback.
  * 
  * Authors: Andrew Zhuo
  */
@@ -91,6 +105,7 @@ typedef struct {
 typedef struct {
     char text[128];          // Display text or sound name
     int type;                // 0=text, 1=play_sound, 2=loop_start, 3=phone_start
+    int sanity_change;       // Sanity change on this line
 } NarrationLine;
 
 /**
@@ -101,6 +116,7 @@ typedef struct {
     char response[128];      // Response after choosing
     char state_key[32];      // GameContext field name to mutate
     bool state_value;        // Value to set
+    bool is_break;           // Does this choice break the loop?
     bool completed;          // Has this choice been picked?
 } NarrationChoice;
 
@@ -117,13 +133,13 @@ typedef struct StoryPhase {
     bool force_narration;                    // Force narration skip based on interactable count?
     StoryCondition end_conditions[5];        // Multiple conditions to end the phase
     int condition_count;                     // Number of active conditions
-    NarrationLine narration_lines[20];       // Interactive narration lines
+    NarrationLine narration_lines[40];       // Interactive narration lines
     int narration_count;                     // Number of narration lines
     NarrationChoice narration_choices[8];    // Choices inside LOOP blocks
     int narration_choice_count;              // Number of loop choices
     // Per-phase phone message data
     char phone_sender[64];                   // Phone sender for this phase
-    PhoneMessage phone_messages[8];          // Phone messages for this phase
+    PhoneMessage phone_messages[32];         // Phone messages for this phase
     int phone_message_count;                 // Number of phone messages
 } StoryPhase;
 
@@ -155,14 +171,19 @@ typedef struct StorySystem {
     char narration_response_text[128];      // Current response text being shown
     bool narration_pending;                 // Narration waiting for fade/camera to settle
     bool narration_has_started;             // Has the current phase's narration ever been activated?
+    bool narration_loop_broken;             // Has the narration loop been intentionally broken early?
 
     // Phone playback state
     int phone_current_index;                // Currently showing message index
     float phone_message_timer;              // Timer for auto-advance
     bool phone_sequence_active;             // Is a multi-message sequence playing?
     char phone_active_sender[64];           // Sender for current phone sequence
-    PhoneMessage phone_active_messages[8];  // Messages for current phone sequence
+    PhoneMessage phone_active_messages[32];  // Messages for current phone sequence
     int phone_active_count;                 // Message count for current sequence
+
+    // Scene overlay state
+    float scene_timer;                      // Timer for SCENE overlays
+    char current_scene[32];                 // Text for the current scene (e.g., "FLASHBACK")
     bool phone_pending;                     // Flag to start interactive phone sequence
 } StorySystem;
 
@@ -205,5 +226,13 @@ StoryPhase* GetActivePhase(StorySystem* story);
  * @param game_audio Pointer to the audio system for sound effects.
  */
 void HandleNarrationInput(struct GameContext* game_context, int* game_state, struct Audio* game_audio);
+
+/**
+ * @brief Dynamically loads narration for the specified phase, parsing [IF] conditions based on GameContext.
+ *
+ * @param phase Pointer to the StoryPhase.
+ * @param game_context Pointer to the GameContext.
+ */
+void LoadPhaseNarration(StoryPhase* phase, struct GameContext* game_context);
 
 #endif

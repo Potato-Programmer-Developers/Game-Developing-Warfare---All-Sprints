@@ -142,6 +142,7 @@ void UpdateCharacter(Character *character, Settings *game_settings, Vector2 map_
 
     // Handle movement and collision
     if (is_moving){
+        bool day2_active = (strcmp(story->day_folder, "day2") == 0);
         movement = Vector2Normalize(movement);
         float next_x = character->position.x + movement.x * character->speed * GetFrameTime();
         float next_y = character->position.y + movement.y * character->speed * GetFrameTime();
@@ -149,8 +150,8 @@ void UpdateCharacter(Character *character, Settings *game_settings, Vector2 map_
         // X collision check
         bool collision_x = false;
         Rectangle collision_rect_x = {next_x, character->position.y, character->size.x, character->size.y};
-        if (CheckMapCollision(map, collision_rect_x, picked_up_registry, picked_up_count)) collision_x = true;
-        for (int i = 0; i < itemCount; i++) if (!items[i].picked_up && CheckCollisionRecs(collision_rect_x, items[i].base.bounds)) { collision_x = true; break; }
+        if (CheckMapCollision(map, collision_rect_x, picked_up_registry, picked_up_count, day2_active)) collision_x = true;
+        for (int i = 0; i < itemCount; i++) if (!items[i].picked_up && !items[i].no_collision && CheckCollisionRecs(collision_rect_x, items[i].base.bounds)) { collision_x = true; break; }
         for (int i = 0; i < npcCount; i++) if (CheckCollisionRecs(collision_rect_x, npcs[i].base.bounds)) { collision_x = true; break; }
         for (int i = 0; i < doorCount; i++) if (CheckCollisionRecs(collision_rect_x, doors[i].base.bounds)) { collision_x = true; break; }
 
@@ -159,8 +160,8 @@ void UpdateCharacter(Character *character, Settings *game_settings, Vector2 map_
         // Y collision check
         bool collision_y = false;
         Rectangle collision_rect_y = {character->position.x, next_y, character->size.x, character->size.y};
-        if (CheckMapCollision(map, collision_rect_y, picked_up_registry, picked_up_count)) collision_y = true;
-        for (int i = 0; i < itemCount; i++) if (!items[i].picked_up && CheckCollisionRecs(collision_rect_y, items[i].base.bounds)) { collision_y = true; break; }
+        if (CheckMapCollision(map, collision_rect_y, picked_up_registry, picked_up_count, day2_active)) collision_y = true;
+        for (int i = 0; i < itemCount; i++) if (!items[i].picked_up && !items[i].no_collision && CheckCollisionRecs(collision_rect_y, items[i].base.bounds)) { collision_y = true; break; }
         for (int i = 0; i < npcCount; i++) if (CheckCollisionRecs(collision_rect_y, npcs[i].base.bounds)) { collision_y = true; break; }
         for (int i = 0; i < doorCount; i++) if (CheckCollisionRecs(collision_rect_y, doors[i].base.bounds)) { collision_y = true; break; }
 

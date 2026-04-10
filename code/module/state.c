@@ -12,6 +12,13 @@
  *                map loads at the 'peak' of the transition.)
  * - 2026-04-06: Implemented "Animated UI State Transitions" and "Dynamic Resizing." (Goal: Support 
  *                animated backgrounds and automatic UI layout refreshments upon window resizing.)
+ * - 2026-04-10: Implemented "Path-Aware State Resets" for Day 2 interior map transitions. (Goal: Fix
+ *                a critical issue where `GameContext` state variables (`main_door_locked`, `fireplace_on`,
+ *                `has_room_keys`, etc.) were being unconditionally reset every time the INTERIOR map was
+ *                loaded. This caused progress loss during phase transitions within the same map. The fix
+ *                compares the incoming map file path against the currently loaded path and only performs
+ *                state resets when the player is truly transitioning between distinct map locations,
+ *                preserving all narrative state during seamless SET4-PHASE1 to SET4-PHASE2 transitions.)
  * 
  * Revision Details:
  * - Implemented a global fade update hook in `UpdateGame` to manage asynchronous map transitions.
@@ -32,6 +39,9 @@
  * - Resolved a state-machine bug by restoring missing `break;` statements.
  * - Synchronized the pause menu transition with `UpdateInteractiveLayout` to refresh 
  *    button bounding boxes in real-time.
+ * - Added `strcmp(map->current_path, target_path)` guard in the INTERIOR map load handler to
+ *    conditionally reset `fireplace_on`, `main_door_locked`, and `doors` only when the player is
+ *    entering a new map location, preventing state wipes during internal phase transitions.
  * 
  * Authors: Andrew Zhuo and Steven Kenneth Darwy
  */
@@ -81,7 +91,7 @@ int UpdateGame(GameState* game_state, struct Interactive* game_interactive, Char
     if (last_state == DIALOGUE_CUTSCENE && *game_state == GAMEPLAY){
         if (game_context->game_dialogue->pending_target_map[0] != '\0') {
             Color c = GetColorFromName(game_context->game_dialogue->pending_fade_color);
-            StartFadeTransition(game_scene, c, game_context->game_dialogue->pending_target_map, game_context->game_dialogue->pending_target_loc);
+            StartFadeTransition(game_scene, c, game_context->game_dialogue->pending_target_map, game_context->game_dialogue->pending_target_loc, NULL);
             game_context->game_dialogue->pending_target_map[0] = '\0';
         }
     }
@@ -96,10 +106,21 @@ int UpdateGame(GameState* game_state, struct Interactive* game_interactive, Char
         else if (strcmp(game_scene->pending_loc, "FOREST") == 0) targetLoc = FOREST;
         else if (strcmp(game_scene->pending_loc, "APARTMENT") == 0) targetLoc = APARTMENT;
         
+        bool is_new_map = (strcmp(game_map->current_path, game_scene->pending_map) != 0);
         FreeMap(game_map);
-        *game_map = InitMap(game_scene->pending_map);
+        *game_map = InitMap(game_scene->pending_map, game_scene->pending_spawn_id);
         player->position = game_map->spawn_position;
         game_context->location = targetLoc;
+
+        // Reset state variables when transitioning to INTERIOR from outside
+        if (targetLoc == INTERIOR && is_new_map) {
+            game_context->main_door_locked = false;
+            game_context->fireplace_on = false;
+            game_context->windows_locked = false;
+            game_context->look_outside = false;
+            game_context->has_room_keys = false;
+            game_context->last_narration_action[0] = '\0';
+        }
 
         game_scene->pending_map[0] = '\0';
         game_scene->is_fading_in = true;
@@ -162,16 +183,26 @@ int UpdateGame(GameState* game_state, struct Interactive* game_interactive, Char
 
             // Check if the story phase has changed
             if (active && (game_context->story.current_phase_idx != last_phase || game_context->story.current_set_idx != last_set)) {
-                // Check if the story phase has changed location
-                if (active->location != STORY_LOC_NONE && (Location)active->location != game_context->location){
+                // Check if the story phase has changed location OR if it's the specific SET4-PHASE2 spawn
+                bool force_transition = (strcmp(active->name, "SET4-PHASE2") == 0);
+                if (force_transition || (active->location != STORY_LOC_NONE && (Location)active->location != game_context->location)){
                     if (game_scene->pending_map[0] == '\0'){
                         const char* targetMap = "";
                         const char* targetLocStr = "";
-                        if (active->location == STORY_LOC_APARTMENT) {targetMap = "../assets/map/map_apart/APARTMENT_MAP.json"; targetLocStr = "APARTMENT";}
-                        else if (active->location == STORY_LOC_EXTERIOR) {targetMap = "../assets/map/map_ext/MAINMAP.json"; targetLocStr = "EXTERIOR";}
-                        else if (active->location == STORY_LOC_INTERIOR) {targetMap = "../assets/map/map_int/MAIN_MAP_INT.json"; targetLocStr = "INTERIOR";}
-                        else if (active->location == STORY_LOC_FARM) {targetMap = "../assets/map/map_farm/FARM.json"; targetLocStr = "FARM";}
-                        StartFadeTransition(game_scene, BLACK, targetMap, targetLocStr);
+                        const char* spawnObj = force_transition ? "SET4-PHASE2" : NULL;
+
+                        // If force transition on same map, keep the map the same
+                        Location destLoc = force_transition ? game_context->location : (Location)active->location;
+
+                        if (destLoc == APARTMENT) {targetMap = "../assets/map/map_apart/APARTMENT_MAP.json"; targetLocStr = "APARTMENT";}
+                        else if (destLoc == EXTERIOR) {targetMap = "../assets/map/map_ext/MAINMAP.json"; targetLocStr = "EXTERIOR";}
+                        else if (destLoc == INTERIOR) {targetMap = "../assets/map/map_int/MAIN_MAP_INT.json"; targetLocStr = "INTERIOR";}
+                        else if (destLoc == FARM) {targetMap = "../assets/map/map_farm/FARM.json"; targetLocStr = "FARM";}
+                        StartFadeTransition(game_scene, BLACK, targetMap, targetLocStr, spawnObj);
+                        
+                        // Prevent triggering map transitions endlessly
+                        last_phase = game_context->story.current_phase_idx;
+                        last_set = game_context->story.current_set_idx;
                     }
                 } else{
                     LoadPhaseAssets(active, game_context);

@@ -5,6 +5,22 @@
  * This module handles the loading, playing, and updating of music and sound effects
  * used throughout the game, including background music, cutscene audio, and spatial sounds.
  * 
+ * Update History:
+ * - 2026-03-22: Foundational audio struct definition. (Goal: Establish a centralized
+ *                container for all audio resources used across the game.)
+ * - 2026-04-10: Integrated narrative-driven horror sound effects for Day 2 SET4-PHASE2. (Goal: Support
+ *                dynamically triggered ambient horror sounds during the nightly interior narration sequence,
+ *                including door banging, window scraping, and chimney rustling effects that are played
+ *                inline via `[PLAY]` tags parsed from `narration.txt` files.)
+ * 
+ * Revision Details:
+ * - Added `Sound door_banging` to the `Audio` struct for the heavy door impact effect triggered
+ *    during the "locked doors" narration path in SET4-PHASE2.
+ * - Added `Sound window_scraping` for the metallic scraping sound effect triggered during the
+ *    "windows locked" narration path in SET4-PHASE2.
+ * - Added `Sound chimney_rustling` for the low rustling/breathing effect triggered during the
+ *    "fireplace on" narration path in SET4-PHASE2.
+ * 
  * Authors: Andrew Zhuo
  */
 
@@ -23,6 +39,9 @@ typedef struct Audio {
     Sound step_outdoor;         // Walking sound on outdoor surfaces
     Sound step_indoor;          // Walking sound on indoor surfaces
     Sound notif_sound;          // Phone notification alert sound
+    Sound door_banging;         // Door banging sound
+    Sound window_scraping;      // Window scraping sound
+    Sound chimney_rustling;     // Chimney rustling sound
 } Audio;
 
 /**

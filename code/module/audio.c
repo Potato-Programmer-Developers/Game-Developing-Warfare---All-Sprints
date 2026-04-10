@@ -9,12 +9,21 @@
  *                auditory feedback for player movement on different surfaces.)
  * - 2026-04-05: Integrated Notification sound triggers. (Goal: Alert the player 
  *                to new phone messages with the `notif.wav` sound.)
+ * - 2026-04-10: Loaded Day 2 horror ambiance sound effects. (Goal: Provide three new audio
+ *                resources — door banging, window scraping, and chimney rustling — that are
+ *                dynamically triggered by `[PLAY]` tags during SET4-PHASE2 narration sequences.
+ *                These sounds create an escalating atmosphere of dread during the nightly interior
+ *                scene, where the player's earlier choices determine which sounds are heard.)
  * 
  * Revision Details:
  * - Refactored `PlayStep` to switch sound profiles based on the `Location` context.
  * - Added `step_outdoor`, `step_indoor`, and `notif_sound` to the global `Audio` state.
  * - Implemented a volume scaling hook tied to the global `Settings` struct.
  * - Created `StopAllAudio` for clean state transitions between maps.
+ * - Added `LoadSound` calls in `LoadAudio` for `door_banging.mp3`, `window_scraping.mp3`, and
+ *    `chimney_rustling.mp3` from the `assets/audios/` directory.
+ * - Added corresponding `UnloadSound` calls in `UnloadAudio` for the three new sound handles to
+ *    prevent memory leaks during shutdown.
  * 
  * Authors: Andrew Zhuo
  */
@@ -38,6 +47,9 @@ Audio InitAudio(Settings* game_settings){
     new_audio.step_outdoor = LoadSound("../assets/audios/step_outdoor.mp3");
     new_audio.step_indoor = LoadSound("../assets/audios/step_indoor.mp3");
     new_audio.notif_sound = LoadSound("../assets/audios/notif.wav");
+    new_audio.door_banging = LoadSound("../assets/audios/door_banging.mp3");
+    new_audio.window_scraping = LoadSound("../assets/audios/window_scraping.mp3");
+    new_audio.chimney_rustling = LoadSound("../assets/audios/chimney_rustling.mp3");
 
     // 5. Start the background music loop immediately
     PlayMusicStream(new_audio.bg_music);
@@ -55,6 +67,9 @@ void CloseAudio(Audio* audio){
     UnloadSound(audio->step_outdoor);
     UnloadSound(audio->step_indoor);
     UnloadSound(audio->notif_sound);
+    UnloadSound(audio->door_banging);
+    UnloadSound(audio->window_scraping);
+    UnloadSound(audio->chimney_rustling);
     
     // Shutdown the audio driver
     CloseAudioDevice();

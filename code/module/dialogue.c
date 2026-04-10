@@ -35,29 +35,21 @@
 #include "dialogue.h"
 #include "game_context.h"
 
-// Global registry for 'once-only' responses
-typedef struct {
-    char filename[128];
-    int index;
-} UsedRegistry;
-
-static UsedRegistry used_responses[256];
-static int used_count = 0;
-
-static bool IsResponseUsed(const char* filename, int index){
-    for (int i = 0; i < used_count; i++) {
-        if (strcmp(used_responses[i].filename, filename) == 0 && used_responses[i].index == index) {
+bool IsResponseUsed(struct GameContext* context, const char* text){
+    if (!context || !text) return false;
+    for (int i = 0; i < context->used_lines_count; i++) {
+        if (strncmp(context->dialogue_used_lines[i].text, text, 63) == 0) {
             return true;
         }
     }
     return false;
 }
 
-static void MarkResponseUsed(const char* filename, int index){
-    if (used_count < 256) {
-        strncpy(used_responses[used_count].filename, filename, 127);
-        used_responses[used_count].index = index;
-        used_count++;
+void MarkResponseUsed(struct GameContext* context, const char* text){
+    if (!context || !text) return;
+    if (context->used_lines_count < 256) {
+        strncpy(context->dialogue_used_lines[context->used_lines_count].text, text, 63);
+        context->used_lines_count++;
     }
 }
 
@@ -68,7 +60,7 @@ static int GetIndentation(const char* line) {
     return count;
 }
 
-void LoadInteraction(const char* filename, Dialogue* dialogue, struct GameContext* context) {
+void LoadInteraction(const char* filename, Dialogue* dialogue, struct GameContext* context, const char* interactable_id) {
     if (!dialogue) return;
     memset(dialogue, 0, sizeof(Dialogue));
     for (int i = 0; i < MAX_DIALOGUE_LINES; i++) {
@@ -92,6 +84,8 @@ void LoadInteraction(const char* filename, Dialogue* dialogue, struct GameContex
 
     // Track the current 'root' block
     int current_block_root = 0;
+    bool skip_block = false;
+    int skip_indent = -1;
 
     // Parse dialogue file
     while (fgets(raw_line, sizeof(raw_line), file)) {
@@ -99,6 +93,33 @@ void LoadInteraction(const char* filename, Dialogue* dialogue, struct GameContex
         char* line = raw_line + line_indent;
         line[strcspn(line, "\r\n")] = 0;
         if (strlen(line) == 0) continue;
+
+        if (strstr(line, "[IF] PLANTED")) {
+            bool is_planted = false;
+            if (context && interactable_id) {
+                for (int i = 0; i < 18; i++) {
+                    if (strcmp(context->pot_registry[i].pot_id, interactable_id) == 0) {
+                        is_planted = context->pot_registry[i].is_planted;
+                        break;
+                    }
+                }
+            }
+            skip_block = !is_planted;
+            skip_indent = line_indent;
+            continue;
+        } else if (strstr(line, "[ELSE]")) {
+            if (skip_indent != -1 && line_indent == skip_indent) {
+                skip_block = !skip_block;
+            }
+            continue;
+        }
+
+        if (skip_block && line_indent > skip_indent) {
+            continue;
+        } else if (line_indent <= skip_indent) {
+            skip_block = false;
+            skip_indent = -1;
+        }
 
         // Determine hierarchy based on indentation
         while (stack_ptr > 1 && line_indent <= indent_stack[stack_ptr - 1]) {
@@ -140,17 +161,38 @@ void LoadInteraction(const char* filename, Dialogue* dialogue, struct GameContex
             char* text = strstr(line, "[RESPONSE]") + 10;
             while (*text == ' ') text++;
             
+            bool is_once = false;
+            char* once_tag = strstr(text, "| 1");
+            if (once_tag) {
+                is_once = true;
+                *once_tag = '\0';
+                // Trim trailing space before | 1
+                char* end = once_tag - 1;
+                while(end > text && *end == ' ') { *end = '\0'; end--; }
+            }
+            
             int r_idx = dialogue->nodes[current_parent_idx].response_count;
             if (r_idx < 10) {
                 strncpy(dialogue->nodes[current_parent_idx].responses[r_idx], text, MAX_LINE_LENGTH - 1);
+                dialogue->nodes[current_parent_idx].response_once[r_idx] = is_once;
                 dialogue->nodes[current_parent_idx].response_count++;
             }
         }
         // Read simple sequential lines if it's a conversation block
         else if (dialogue->nodes[current_parent_idx].is_conversation && line[0] != '[') {
+            bool is_once = false;
+            char* once_tag = strstr(line, "| 1");
+            if (once_tag) {
+                is_once = true;
+                *once_tag = '\0';
+                // Trim trailing space before | 1
+                char* end = once_tag - 1;
+                while(end > line && *end == ' ') { *end = '\0'; end--; }
+            }
             int r_idx = dialogue->nodes[current_parent_idx].response_count;
             if (r_idx < 10) {
                 strncpy(dialogue->nodes[current_parent_idx].responses[r_idx], line, MAX_LINE_LENGTH - 1);
+                dialogue->nodes[current_parent_idx].response_once[r_idx] = is_once;
                 dialogue->nodes[current_parent_idx].response_count++;
             }
         }
@@ -250,6 +292,11 @@ void LoadInteraction(const char* filename, Dialogue* dialogue, struct GameContex
             else if (strstr(line, "+")) delta = 10;
             else if (strstr(line, "-")) delta = -10;
             dialogue->nodes[current_parent_idx].karma_change = delta;
+        } else if (strstr(line, "[SET_PLANTED:")) {
+            int seed = 0;
+            if (sscanf(strstr(line, "[SET_PLANTED:"), "[SET_PLANTED: %d]", &seed) == 1) {
+                dialogue->nodes[current_parent_idx].plant_seed_type = seed;
+            }
         }
     }
 

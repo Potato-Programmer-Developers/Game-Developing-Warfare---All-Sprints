@@ -57,7 +57,7 @@ int main(void){
     InitGame(&game_settings);
 
     Data game_data = LoadData(&game_settings);
-    Map game_map = InitMap("../assets/map/map_apart/APARTMENT_MAP.json");
+    Map game_map = InitMap("../assets/map/map_apart/APARTMENT_MAP.json", NULL);
     Character player = InitCharacter(&game_settings, &game_data, &game_map);
     Audio game_audio = InitAudio(&game_settings);
     Scene game_scene = InitScene(&game_settings);

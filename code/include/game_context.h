@@ -33,6 +33,17 @@ typedef struct Item Item;
 typedef struct Door Door;
 typedef struct Scene Scene;
 struct Dialogue;
+struct Settings; // Forward Declaration
+
+typedef struct {
+    char text[64];
+} UsedRegistry;
+
+typedef struct {
+    char pot_id[64];
+    bool is_planted;
+    int seed_type;              // 1: Tomato, 2: Lettuce, 3: Potato
+} PotStatus;
 
 /**
  * @brief Global container for session-persistent data.
@@ -73,6 +84,8 @@ typedef struct GameContext {
     bool main_door_locked;              // Nightly: main door locked state
     bool windows_locked;                // Nightly: windows locked state
     bool has_room_keys;                 // Nightly: player has room keys
+    bool look_outside;                  // Nightly: looked outside before sleep
+    char last_narration_action[32];     // Nightly: last choice made before bed
 
     // Dream Sequence State
     bool dream_active;                  // Flag for active dream sequence
@@ -91,6 +104,10 @@ typedef struct GameContext {
     int met_npc_set[64];              // Set index when met
     int met_npc_phase[64];            // Phase index when met
     int met_npc_count;                // Number of NPCs spoken to
+
+    PotStatus pot_registry[18];       // Tracking for Day 2 planting mechanic
+    UsedRegistry dialogue_used_lines[256]; // Persisting once-only responses
+    int used_lines_count;             // Number of lines that have been used
 } GameContext;
 
 

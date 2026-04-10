@@ -101,6 +101,28 @@ static AssetMetadata ASSET_REGISTRY[] = {
     {"big_logs5", "../assets/map/map_farm/big logs.png", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
     {"left box", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
     {"right box", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"red_pot1", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"red_pot2", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"red_pot3", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"red_pot4", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"red_pot5", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"red_pot6", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"orange_pot1", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"orange_pot2", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"orange_pot3", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"orange_pot4", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"orange_pot5", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"orange_pot6", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"green_pot1", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"green_pot2", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"green_pot3", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"green_pot4", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"green_pot5", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"green_pot6", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"footsteps", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"feathers", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"rosary", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"pumpkin_piece", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
 };
 
 static int REGISTRY_COUNT = sizeof(ASSET_REGISTRY) / sizeof(ASSET_REGISTRY[0]);
@@ -164,6 +186,13 @@ void LoadPhaseAssets(StoryPhase* phase, GameContext* context){
         AssetMetadata* meta = FindInRegistry(phase->interactables[i].id);
         if (!meta) continue;
 
+        // Explicit gate for clues: Day 2 SET 1 only
+        if (strcmp(meta->id, "rosary") == 0 || strcmp(meta->id, "feathers") == 0 || 
+            strcmp(meta->id, "pumpkin_piece") == 0 || strcmp(meta->id, "footsteps") == 0) {
+            bool day2_active = (strcmp(context->story.day_folder, "day2") == 0);
+            if (!(day2_active && context->story.current_set_idx == 0)) continue;
+        }
+
         // Try to get dynamic bounds from Tiled object layer
         Rectangle finalBounds = GetMapObjectBounds(context->map, meta->id);
         if (finalBounds.width == 0 || finalBounds.height == 0){
@@ -189,11 +218,24 @@ void LoadPhaseAssets(StoryPhase* phase, GameContext* context){
             strncpy(item->base.texturePath, meta->texturePath, 127);
             
             // Construct dynamic dialogue path based on current story state
-            sprintf(item->base.dialoguePath, "../assets/text/%s/set%d/phase%d/%s.txt", 
-                    context->story.day_folder, context->story.current_set_idx + 1, 
-                    context->story.current_phase_idx + 1, meta->id);
+            if (strstr(meta->id, "pot") != NULL) {
+                sprintf(item->base.dialoguePath, "../assets/text/%s/set%d/phase%d/pot.txt", 
+                        context->story.day_folder, context->story.current_set_idx + 1, 
+                        context->story.current_phase_idx + 1);
+            } else {
+                sprintf(item->base.dialoguePath, "../assets/text/%s/set%d/phase%d/%s.txt", 
+                        context->story.day_folder, context->story.current_set_idx + 1, 
+                        context->story.current_phase_idx + 1, meta->id);
+            }
             item->is_pickup = false; 
+            item->no_collision = false;
             if (strstr(meta->id, "logs") || strstr(meta->id, "garbage")) item->is_pickup = true;
+            
+            // Clue items should never block the player
+            if (strcmp(meta->id, "rosary") == 0 || strcmp(meta->id, "feathers") == 0 || 
+                strcmp(meta->id, "pumpkin_piece") == 0 || strcmp(meta->id, "footsteps") == 0) {
+                item->no_collision = true;
+            }
             
             // Persistent state: Check if this item was already picked up in this session
             for (int j = 0; j < context->picked_up_count; j++) {
@@ -209,10 +251,16 @@ void LoadPhaseAssets(StoryPhase* phase, GameContext* context){
             door->base.type = INTERACTABLE_TYPE_DOOR;
             strncpy(door->base.texturePath, meta->texturePath, 127);
             
-            // Hardcoded targets for specific doors
+            // Hardcoded targets: each door always leads to the same map
             if (strcmp(meta->id, "house_door") == 0){
                 strcpy(door->targetMapPath, "../assets/map/map_int/MAIN_MAP_INT.json");
                 door->targetLocation = INTERIOR;
+            } else if (strcmp(meta->id, "farm_road") == 0){
+                strcpy(door->targetMapPath, "../assets/map/map_farm/FARM.json");
+                door->targetLocation = FARM;
+            } else if (strcmp(meta->id, "forest_road") == 0){
+                strcpy(door->targetMapPath, "../assets/map/map_ext/MAINMAP.json");
+                door->targetLocation = EXTERIOR;
             }
 
             sprintf(door->base.dialoguePath, "../assets/text/%s/set%d/phase%d/%s.txt", 
@@ -223,6 +271,9 @@ void LoadPhaseAssets(StoryPhase* phase, GameContext* context){
 
     LoadNPCs(context->worldNPCs, context->npcCount);
     LoadItems(context->worldItems, context->itemCount);
+    
+    // Dynamically load any branching narration for this phase
+    LoadPhaseNarration(phase, context);
 }
 
 void UnloadLocationAssets(GameContext* context){

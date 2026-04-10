@@ -54,7 +54,7 @@ Scene InitScene(Settings* game_settings){
     return new_scene;
 }
 
-void StartFadeTransition(Scene* scene, Color color, const char* map, const char* loc) {
+void StartFadeTransition(Scene* scene, Color color, const char* map, const char* loc, const char* spawn_id) {
     if (!scene) return;
     scene->fade_color = color;
     scene->fade_alpha = 0.0f;
@@ -64,6 +64,8 @@ void StartFadeTransition(Scene* scene, Color color, const char* map, const char*
     else scene->pending_map[0] = '\0';
     if (loc) strncpy(scene->pending_loc, loc, 31);
     else scene->pending_loc[0] = '\0';
+    if (spawn_id) strncpy(scene->pending_spawn_id, spawn_id, 63);
+    else scene->pending_spawn_id[0] = '\0';
 }
 
 void UpdateFade(Scene* scene, float delta, GameState state){
@@ -127,20 +129,28 @@ void DrawGame(Scene *game_scene, Settings *game_settings, Interactive *game_inte
 
         // Draw dialogue box
         if (*game_state == DIALOGUE_CUTSCENE){
-            DrawRectangle(0, GetScreenHeight() - 200, GetScreenWidth(), 200, Fade(BLACK, 0.8f));
+            int required_height = 200;
+            DialogueNode* current_node = &game_dialogue->nodes[game_dialogue->current_node_idx];
+            bool has_choices = (game_dialogue->current_line >= game_dialogue->line_count - 1 && current_node->choice_count > 0);
+            
+            if (has_choices) {
+                int needed = 70 + current_node->choice_count * 30 + 30; // margins + spacing
+                if (needed > required_height) required_height = needed;
+            }
+            
+            DrawRectangle(0, GetScreenHeight() - required_height, GetScreenWidth(), required_height, Fade(BLACK, 0.8f));
+            int box_y = GetScreenHeight() - required_height;
             
             // Get the current node's text
-            DialogueNode* current_node = &game_dialogue->nodes[game_dialogue->current_node_idx];
             const char *line = game_dialogue->lines[game_dialogue->current_line];
-            
-            DrawText(line, GetScreenWidth() / 2 - MeasureText(line, 20) / 2, GetScreenHeight() - 170, 20, WHITE);
+            DrawText(line, GetScreenWidth() / 2 - MeasureText(line, 20) / 2, box_y + 30, 20, WHITE);
 
             // Draw choices if we're at the end of the current node's text
-            if (game_dialogue->current_line >= game_dialogue->line_count - 1 && current_node->choice_count > 0){
+            if (has_choices){
                 for (int i = 0; i < current_node->choice_count; i++){
                     char choiceText[128];
                     sprintf(choiceText, "%d. %s", i + 1, current_node->choices[i]);
-                    DrawText(choiceText, 100, GetScreenHeight() - 130 + (i * 30), 20, YELLOW);
+                    DrawText(choiceText, 100, box_y + 80 + (i * 30), 20, YELLOW);
                 }
             } else if (game_dialogue->current_line < game_dialogue->line_count) {
                 DrawText("Press 'SPACE' to continue", GetScreenWidth() - 300, GetScreenHeight() - 40, 20, GRAY);
@@ -167,7 +177,42 @@ void DrawGame(Scene *game_scene, Settings *game_settings, Interactive *game_inte
                 Color qColor = q->completed ? LIME : WHITE;
                 const char* prefix = q->completed ? "[v] " : "[ ] ";
                 char qText[256];
-                sprintf(qText, "%s%s", prefix, q->description);
+                
+                // Dynamic quest progress injection
+                if (strstr(q->description, "(0/18)")) {
+                    int pots_planted = 0;
+                    for (int p = 0; p < 18; p++) if (game_context->pot_registry[p].is_planted) pots_planted++;
+                    
+                    q->completed = (pots_planted >= 18);
+                    qColor = q->completed ? LIME : WHITE;
+                    prefix = q->completed ? "[v] " : "[ ] ";
+
+                    char modified_desc[128];
+                    strcpy(modified_desc, q->description);
+                    char* ptr = strstr(modified_desc, "(0/18)");
+                    sprintf(ptr, "(%d/18)", pots_planted);
+                    sprintf(qText, "%s%s", prefix, modified_desc);
+                } else if (strstr(q->description, "(0/4)")) {
+                    int clues_found = 0;
+                    for (int c = 0; c < active_phase->condition_count; c++) {
+                        if (active_phase->end_conditions[c].type == CONDITION_INTERACT_OBJECT && active_phase->end_conditions[c].met) {
+                            clues_found++;
+                        }
+                    }
+                    
+                    q->completed = (clues_found >= 4);
+                    qColor = q->completed ? LIME : WHITE;
+                    prefix = q->completed ? "[v] " : "[ ] ";
+
+                    char modified_desc[128];
+                    strcpy(modified_desc, q->description);
+                    char* ptr = strstr(modified_desc, "(0/4)");
+                    sprintf(ptr, "(%d/4)", clues_found);
+                    sprintf(qText, "%s%s", prefix, modified_desc);
+                } else {
+                    sprintf(qText, "%s%s", prefix, q->description);
+                }
+                
                 DrawText(qText, 35, 55 + (i * 25), 18, qColor);
             }
             
@@ -206,22 +251,29 @@ void DrawGame(Scene *game_scene, Settings *game_settings, Interactive *game_inte
 
         // Draw Interactive Narration (only when phone is not playing)
         if (*game_state == NARRATION_CUTSCENE && game_context->story.narration_active && active_phase && !game_context->story.phone_sequence_active){
-            DrawRectangle(0, GetScreenHeight() - 200, GetScreenWidth(), 200, Fade(BLACK, 0.8f));
+            int required_height = 200;
+            if (!game_context->story.narration_showing_response && game_context->story.narration_in_loop) {
+                int needed = 60 + active_phase->narration_choice_count * 30 + 30; // margins
+                if (needed > required_height) required_height = needed;
+            }
+            
+            DrawRectangle(0, GetScreenHeight() - required_height, GetScreenWidth(), required_height, Fade(BLACK, 0.8f));
+            int box_y = GetScreenHeight() - required_height;
             
             if (game_context->story.narration_showing_response){
                 // Show the response text for a chosen option
                 const char* resp = game_context->story.narration_response_text;
-                DrawText(resp, GetScreenWidth() / 2 - MeasureText(resp, 20) / 2, GetScreenHeight() - 170, 20, WHITE);
+                DrawText(resp, GetScreenWidth() / 2 - MeasureText(resp, 20) / 2, box_y + 30, 20, WHITE);
                 DrawText("Press 'SPACE' to continue", GetScreenWidth() - 300, GetScreenHeight() - 40, 20, GRAY);
             } else if (game_context->story.narration_in_loop){
                 // Show loop choices
-                DrawText("What should I do?", GetScreenWidth() / 2 - MeasureText("What should I do?", 20) / 2, GetScreenHeight() - 190, 20, WHITE);
+                DrawText("What should I do?", GetScreenWidth() / 2 - MeasureText("What should I do?", 20) / 2, box_y + 20, 20, WHITE);
                 int drawn = 0;
                 for (int i = 0; i < active_phase->narration_choice_count; i++){
                     char choiceText[128];
                     sprintf(choiceText, "%d. %s", drawn + 1, active_phase->narration_choices[i].label);
                     Color color = active_phase->narration_choices[i].completed ? DARKGRAY : YELLOW;
-                    DrawText(choiceText, 100, GetScreenHeight() - 160 + (i * 30), 20, color);
+                    DrawText(choiceText, 100, box_y + 60 + (i * 30), 20, color);
                     drawn++;
                 }
             } else{
@@ -229,7 +281,7 @@ void DrawGame(Scene *game_scene, Settings *game_settings, Interactive *game_inte
                 int line_idx = game_context->story.narration_current_line;
                 if (line_idx < active_phase->narration_count && active_phase->narration_lines[line_idx].type == 0){
                     const char* ntext = active_phase->narration_lines[line_idx].text;
-                    DrawText(ntext, GetScreenWidth() / 2 - MeasureText(ntext, 20) / 2, GetScreenHeight() - 170, 20, WHITE);
+                    DrawText(ntext, GetScreenWidth() / 2 - MeasureText(ntext, 20) / 2, box_y + 30, 20, WHITE);
                     DrawText("Press 'SPACE' to continue", GetScreenWidth() - 300, GetScreenHeight() - 40, 20, GRAY);
                 }
             }
@@ -246,6 +298,16 @@ void DrawGame(Scene *game_scene, Settings *game_settings, Interactive *game_inte
             int txtW = MeasureText(dtxt, 20);
             DrawText(dtxt, GetScreenWidth() / 2 - txtW / 2, GetScreenHeight() / 2 - 10, 20, WHITE);
             DrawText(TextFormat("Dreaming... %d/%d", game_context->dream_current+1, game_context->dream_count), 20, 20, 15, GRAY);
+        }
+    }
+
+    // Draw SCENE overlay (e.g. FLASHBACK)
+    if (game_context->story.scene_timer > 0) {
+        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(BLACK, 1.0f));
+        if (game_context->story.current_scene[0] != '\0') {
+            const char* s_text = game_context->story.current_scene;
+            int s_txtW = MeasureText(s_text, 30);
+            DrawText(s_text, GetScreenWidth() / 2 - s_txtW / 2, GetScreenHeight() / 2 - 15, 30, WHITE);
         }
     }
 
@@ -300,7 +362,8 @@ void DrawGameplay(Scene* scene, Settings* game_settings, Interactive* game_inter
                 Character* player, NPC worldNPCs[], Item worldItems[], GameContext* game_context){
     // Draw gameplay
     BeginMode2D(game_context->camera);
-    DrawMap(game_map, game_context->fireplace_on, game_context->doors);
+    bool day2_active = (strcmp(game_context->story.day_folder, "day2") == 0);
+    DrawMap(game_map, game_context->fireplace_on, game_context->main_door_locked, day2_active, game_context->story.current_set_idx);
 
     // Draw world items (Only pickable ones)
     for (int i = 0; i < game_context->itemCount; i++) {
