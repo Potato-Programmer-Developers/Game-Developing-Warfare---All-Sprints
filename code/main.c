@@ -114,7 +114,7 @@ void RunGame(Character *player, Audio *game_audio, Settings *game_settings,
         UpdateAudio(game_audio);
 
         // Interaction system: calculate proximity-based hitbox (expanded and centered)
-        Rectangle playerHitbox = {player->position.x - 40, player->position.y - 40, player->size.x + 80, player->size.y + 80};
+        Rectangle playerHitbox = {player->position.x - 40, player->position.y - 30, player->size.x + 80, player->size.y + 60};
         CheckInteractable(game_context->worldNPCs, game_context->worldItems, game_context->worldDoors, 
             game_context->npcCount, game_context->itemCount, game_context->doorCount,
             playerHitbox, &objectToInteractWith);

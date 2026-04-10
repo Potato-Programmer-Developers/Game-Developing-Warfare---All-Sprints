@@ -38,7 +38,7 @@ Character InitCharacter(Settings* game_settings, Data* game_data, Map* game_map)
     character.sprite = character.walk_down;
 
     // Initialize character properties
-    character.size = (Vector2){80.0f, 175.0f};
+    character.size = (Vector2){90.0f, 150.0f};
     character.speed = game_settings->mc_speed;
     character.direction = 0; 
 

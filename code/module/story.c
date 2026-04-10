@@ -289,6 +289,7 @@ void LoadStoryDay(StorySystem* story, const char* path) {
                                 char* resp = strstr(trimmed, "[RESPONSE]") + 10;
                                 while (*resp == ' ') resp++;
                                 strncpy(current_choice->response, resp, 127);
+                                ReplaceNewlines(current_choice->response);
                             } else if (in_loop && current_choice && strstr(trimmed, "[STATE]")) {
                                 char* state_str = strstr(trimmed, "[STATE]") + 7;
                                 while (*state_str == ' ') state_str++;
@@ -304,6 +305,7 @@ void LoadStoryDay(StorySystem* story, const char* path) {
                                 in_phone = false;
                                 if (phase_ptr->narration_count < 20) {
                                     strncpy(phase_ptr->narration_lines[phase_ptr->narration_count].text, trimmed, 127);
+                                    ReplaceNewlines(phase_ptr->narration_lines[phase_ptr->narration_count].text);
                                     phase_ptr->narration_lines[phase_ptr->narration_count].type = 0; // text
                                     phase_ptr->narration_count++;
                                 }
@@ -887,6 +889,7 @@ static bool EvaluateCondition(struct GameContext* ctx, const char* cond) {
     if (strcmp(cond, "DOOR_MISSED") == 0) return !ctx->main_door_locked;
     if (strcmp(cond, "WINDOW_MISSED") == 0) return !ctx->windows_locked;
     if (strcmp(cond, "NOT FIREPLACE_ON AND HAS_ROOM_KEYS") == 0) return !ctx->fireplace_on && ctx->has_room_keys;
+    if (strcmp(cond, "FIREPLACE_ON AND NOT HAS_ROOM_KEYS") == 0) return ctx->fireplace_on && !ctx->has_room_keys;
     if (strcmp(cond, "NOT FIREPLACE_ON AND NOT HAS_ROOM_KEYS") == 0) return !ctx->fireplace_on && !ctx->has_room_keys;
     if (strcmp(cond, "FIREPLACE_ON AND HAS_ROOM_KEYS") == 0) return ctx->fireplace_on && ctx->has_room_keys;
     if (strcmp(cond, "DOOR_LAST") == 0) return strcmp(ctx->last_narration_action, "DOOR") == 0;
@@ -981,6 +984,7 @@ void LoadPhaseNarration(StoryPhase* phase, struct GameContext* game_context) {
             while (*resp == ' ') resp++;
             if (phase->narration_count < 40) {
                 strncpy(phase->narration_lines[phase->narration_count].text, resp, 127);
+                ReplaceNewlines(phase->narration_lines[phase->narration_count].text);
                 phase->narration_lines[phase->narration_count].type = 0; // text
                 phase->narration_lines[phase->narration_count].sanity_change = 0;
                 phase->narration_count++;

@@ -35,6 +35,21 @@
 #include "dialogue.h"
 #include "game_context.h"
 
+// Helper: replace literal "\n" sequences with actual newline characters
+static void ReplaceNewlines(char* str) {
+    char* src = str;
+    char* dst = str;
+    while (*src) {
+        if (*src == '\\' && *(src + 1) == 'n') {
+            *dst++ = '\n';
+            src += 2;
+        } else {
+            *dst++ = *src++;
+        }
+    }
+    *dst = '\0';
+}
+
 bool IsResponseUsed(struct GameContext* context, const char* text){
     if (!context || !text) return false;
     for (int i = 0; i < context->used_lines_count; i++) {
@@ -174,6 +189,7 @@ void LoadInteraction(const char* filename, Dialogue* dialogue, struct GameContex
             int r_idx = dialogue->nodes[current_parent_idx].response_count;
             if (r_idx < 10) {
                 strncpy(dialogue->nodes[current_parent_idx].responses[r_idx], text, MAX_LINE_LENGTH - 1);
+                ReplaceNewlines(dialogue->nodes[current_parent_idx].responses[r_idx]);
                 dialogue->nodes[current_parent_idx].response_once[r_idx] = is_once;
                 dialogue->nodes[current_parent_idx].response_count++;
             }
@@ -192,6 +208,7 @@ void LoadInteraction(const char* filename, Dialogue* dialogue, struct GameContex
             int r_idx = dialogue->nodes[current_parent_idx].response_count;
             if (r_idx < 10) {
                 strncpy(dialogue->nodes[current_parent_idx].responses[r_idx], line, MAX_LINE_LENGTH - 1);
+                ReplaceNewlines(dialogue->nodes[current_parent_idx].responses[r_idx]);
                 dialogue->nodes[current_parent_idx].response_once[r_idx] = is_once;
                 dialogue->nodes[current_parent_idx].response_count++;
             }
