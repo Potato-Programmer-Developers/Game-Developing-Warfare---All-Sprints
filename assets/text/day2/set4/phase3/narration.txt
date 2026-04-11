@@ -3,9 +3,9 @@
         [CHOICE] Who are you??
             [MESSAGE] Have you already forgotten?
             [CHOICE] I didn’t forget shit buddy.
-                [MESSAGE] Good. May the memory of his misery be burned into your retinas as I take your sight away.
+                [MESSAGE] Good. May the memory of his misery\nbe burned into your retinas as I\ntake your sight away.
             [CHOICE] Huh?
-                [MESSAGE] What will you do? Are you going to remember? Or are you going to forget?
+                [MESSAGE] What will you do? Are you going to\nremember? Or are you going to\nforget?
                     [CHOICE] Remember.
                         [SCENE] FLASHBACK
                     [CHOICE] Forget

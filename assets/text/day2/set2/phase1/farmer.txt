@@ -13,11 +13,11 @@
 [CHOICE2] I gotta ask you something.
     [RESPONSE] Hmm? It better be about work.
     [CHOICE1] Were you walking around the house grounds last night?
-        [RESPONSE] No, that wasn’t me. Just plant these seeds into the pots. Red for lettuce, green for tomatoes, orange for potatoes. 
+        [RESPONSE] No, that wasn’t me. Just plant these seeds into the pots.\nRed for lettuce, green for tomatoes, orange for potatoes. 
     [CHOICE2] Are the squirrels here active at night?
-        [RESPONSE] No, I don’t know. Im a farmer not a squirrel-er. Just plant these seeds into the pots. Red for lettuce, green for tomatoes, orange for potatoes.
+        [RESPONSE] No, I don’t know. Im a farmer not a squirrel-er. Just plant these seeds into the pots.\nRed for lettuce, green for tomatoes, orange for potatoes.
     [CHOICE3] Who’s Saul? (unable to choose this if the player didn’t talk to saul earlier)
-        [RESPONSE] Who the f*ck is Saul? You’re a schizo kid. Forget about it and just plant these seeds into the pots. Red for lettuce, green for tomatoes, orange for potatoes.
+        [RESPONSE] Who the f*ck is Saul? You’re a schizo kid. Forget about it and just plant these seeds into the pots.\nRed for lettuce, green for tomatoes, orange for potatoes.
 [CHOICE3] Were you out snooping last night?
-    [RESPONSE] Do I look like a snooper to ya?? Just plant these seeds into the pots. Red for lettuce, green for tomatoes, orange for potatoes. 
+    [RESPONSE] Do I look like a snooper to ya?? Just plant these seeds into the pots.\nRed for lettuce, green for tomatoes, orange for potatoes. 
     [KARMA] -

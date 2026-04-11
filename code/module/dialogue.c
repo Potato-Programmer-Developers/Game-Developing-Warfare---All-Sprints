@@ -122,6 +122,45 @@ void LoadInteraction(const char* filename, Dialogue* dialogue, struct GameContex
             skip_block = !is_planted;
             skip_indent = line_indent;
             continue;
+        } else if (strstr(line, "_TALKED")) {
+            // Generic NPC talked condition: [IF] SAUL_TALKED == FALSE
+            // Check if the player has met this NPC in a previous day/set/phase
+            char* if_start = strstr(line, "[IF] ");
+            if (if_start) {
+                char npc_name[64] = {0};
+                char* talked_pos = strstr(if_start + 5, "_TALKED");
+                if (talked_pos) {
+                    int name_len = (int)(talked_pos - (if_start + 5));
+                    if (name_len > 0 && name_len < 64) {
+                        strncpy(npc_name, if_start + 5, name_len);
+                        npc_name[name_len] = '\0';
+                        // Convert to lowercase for matching against met_npcs
+                        for (int i = 0; npc_name[i]; i++) {
+                            if (npc_name[i] >= 'A' && npc_name[i] <= 'Z')
+                                npc_name[i] += 32;
+                        }
+                    }
+                }
+                // Use the same met_npc check as the choice visibility system:
+                // NPC must have been met in a previous set or phase
+                bool met = false;
+                if (context && npc_name[0]) {
+                    for (int m = 0; m < context->met_npc_count; m++) {
+                        if (strstr(context->met_npcs[m], npc_name)) {
+                            if (context->met_npc_set[m] < context->story.current_set_idx || 
+                               (context->met_npc_set[m] == context->story.current_set_idx && context->met_npc_phase[m] < context->story.current_phase_idx)) {
+                                met = true;
+                            }
+                            break;
+                        }
+                    }
+                }
+                bool expects_false = (strstr(line, "== FALSE") != NULL);
+                bool condition_met = expects_false ? !met : met;
+                skip_block = !condition_met;
+                skip_indent = line_indent;
+            }
+            continue;
         } else if (strstr(line, "[ELSE]")) {
             if (skip_indent != -1 && line_indent == skip_indent) {
                 skip_block = !skip_block;

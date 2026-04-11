@@ -196,7 +196,7 @@ void LoadStoryDay(StorySystem* story, const char* path) {
                                 // Add a phone_start narration line marker
                                 if (phase_ptr->narration_count < 20) {
                                     phase_ptr->narration_lines[phase_ptr->narration_count].type = 3; // phone_start
-                                    strncpy(phase_ptr->narration_lines[phase_ptr->narration_count].text, "PHONE", 127);
+                                    strncpy(phase_ptr->narration_lines[phase_ptr->narration_count].text, "PHONE", 255);
                                     phase_ptr->narration_count++;
                                 }
                             } else if (in_phone && strstr(trimmed, "[MESSAGE]")) {
@@ -264,7 +264,7 @@ void LoadStoryDay(StorySystem* story, const char* path) {
                                 if (phase_ptr->narration_count < 20) {
                                     char* sound_name = strstr(trimmed, "[PLAY]") + 6;
                                     while (*sound_name == ' ') sound_name++;
-                                    strncpy(phase_ptr->narration_lines[phase_ptr->narration_count].text, sound_name, 127);
+                                    strncpy(phase_ptr->narration_lines[phase_ptr->narration_count].text, sound_name, 255);
                                     phase_ptr->narration_lines[phase_ptr->narration_count].type = 1; // play_sound
                                     phase_ptr->narration_count++;
                                 }
@@ -272,7 +272,7 @@ void LoadStoryDay(StorySystem* story, const char* path) {
                                 in_phone = false;
                                 if (phase_ptr->narration_count < 20) {
                                     phase_ptr->narration_lines[phase_ptr->narration_count].type = 2; // loop_start
-                                    strncpy(phase_ptr->narration_lines[phase_ptr->narration_count].text, "LOOP", 127);
+                                    strncpy(phase_ptr->narration_lines[phase_ptr->narration_count].text, "LOOP", 255);
                                     phase_ptr->narration_count++;
                                 }
                                 in_loop = true;
@@ -288,7 +288,7 @@ void LoadStoryDay(StorySystem* story, const char* path) {
                             } else if (in_loop && current_choice && strstr(trimmed, "[RESPONSE]")) {
                                 char* resp = strstr(trimmed, "[RESPONSE]") + 10;
                                 while (*resp == ' ') resp++;
-                                strncpy(current_choice->response, resp, 127);
+                                strncpy(current_choice->response, resp, 255);
                                 ReplaceNewlines(current_choice->response);
                             } else if (in_loop && current_choice && strstr(trimmed, "[STATE]")) {
                                 char* state_str = strstr(trimmed, "[STATE]") + 7;
@@ -304,7 +304,7 @@ void LoadStoryDay(StorySystem* story, const char* path) {
                                 // Plain text narration line (only if not inside phone block)
                                 in_phone = false;
                                 if (phase_ptr->narration_count < 20) {
-                                    strncpy(phase_ptr->narration_lines[phase_ptr->narration_count].text, trimmed, 127);
+                                    strncpy(phase_ptr->narration_lines[phase_ptr->narration_count].text, trimmed, 255);
                                     ReplaceNewlines(phase_ptr->narration_lines[phase_ptr->narration_count].text);
                                     phase_ptr->narration_lines[phase_ptr->narration_count].type = 0; // text
                                     phase_ptr->narration_count++;
@@ -814,7 +814,7 @@ void HandleNarrationInput(struct GameContext* game_context, int* game_state, str
                         return;
                     }
                     
-                    strncpy(story->narration_response_text, active->narration_choices[i].response, 127);
+                    strncpy(story->narration_response_text, active->narration_choices[i].response, 255);
                     story->narration_showing_response = true;
                     // Apply state mutation
                     if (active->narration_choices[i].state_key[0] != '\0') {
@@ -983,7 +983,7 @@ void LoadPhaseNarration(StoryPhase* phase, struct GameContext* game_context) {
             char* resp = trimmed + 10;
             while (*resp == ' ') resp++;
             if (phase->narration_count < 40) {
-                strncpy(phase->narration_lines[phase->narration_count].text, resp, 127);
+                strncpy(phase->narration_lines[phase->narration_count].text, resp, 255);
                 ReplaceNewlines(phase->narration_lines[phase->narration_count].text);
                 phase->narration_lines[phase->narration_count].type = 0; // text
                 phase->narration_lines[phase->narration_count].sanity_change = 0;
@@ -993,7 +993,7 @@ void LoadPhaseNarration(StoryPhase* phase, struct GameContext* game_context) {
             char* sound = trimmed + 6;
             while (*sound == ' ') sound++;
             if (phase->narration_count < 40) {
-                strncpy(phase->narration_lines[phase->narration_count].text, sound, 127);
+                strncpy(phase->narration_lines[phase->narration_count].text, sound, 255);
                 phase->narration_lines[phase->narration_count].type = 1; // play_sound
                 phase->narration_lines[phase->narration_count].sanity_change = 0;
                 phase->narration_count++;

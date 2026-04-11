@@ -103,7 +103,7 @@ typedef struct {
  * @brief A single narration line entry.
  */
 typedef struct {
-    char text[128];          // Display text or sound name
+    char text[256];          // Display text or sound name
     int type;                // 0=text, 1=play_sound, 2=loop_start, 3=phone_start
     int sanity_change;       // Sanity change on this line
 } NarrationLine;
@@ -113,7 +113,7 @@ typedef struct {
  */
 typedef struct {
     char label[64];          // Choice text
-    char response[128];      // Response after choosing
+    char response[256];      // Response after choosing
     char state_key[32];      // GameContext field name to mutate
     bool state_value;        // Value to set
     bool is_break;           // Does this choice break the loop?
@@ -168,7 +168,7 @@ typedef struct StorySystem {
     int narration_current_line;             // Current narration line index
     bool narration_in_loop;                 // Are we in the LOOP choice block?
     bool narration_showing_response;        // Showing a choice response?
-    char narration_response_text[128];      // Current response text being shown
+    char narration_response_text[256];      // Current response text being shown
     bool narration_pending;                 // Narration waiting for fade/camera to settle
     bool narration_has_started;             // Has the current phase's narration ever been activated?
     bool narration_loop_broken;             // Has the narration loop been intentionally broken early?
