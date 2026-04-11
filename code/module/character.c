@@ -56,7 +56,7 @@ Character InitCharacter(Settings* game_settings, Data* game_data, Map* game_map)
     // Initialize character stats
     character.stamina = 100.0f;
     character.max_stamina = 100.0f;
-    character.sanity = 0.0f;
+    character.sanity = 100.0f;
     character.max_sanity = 100.0f;
     character.exhausted = false;
     character.needs_shift_reset = false;
