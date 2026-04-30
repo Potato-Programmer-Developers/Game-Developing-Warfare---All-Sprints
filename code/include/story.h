@@ -174,6 +174,8 @@ typedef struct StorySystem {
     bool narration_pending;                 // Narration waiting for fade/camera to settle
     bool narration_has_started;             // Has the current phase's narration ever been activated?
     bool narration_loop_broken;             // Has the narration loop been intentionally broken early?
+    float narration_typing_timer;           // Timer for progressive typing effect
+    int narration_typing_index;             // Current character index for typing effect
 
     // Phone playback state
     int phone_current_index;                // Currently showing message index

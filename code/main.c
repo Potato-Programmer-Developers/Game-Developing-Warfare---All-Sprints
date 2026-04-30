@@ -124,12 +124,12 @@ void RunGame(Character *player, Audio *game_audio, Settings *game_settings,
                 
         // Input Handling: Interaction Trigger (E)
         if (IsKeyPressed(KEY_E) && *game_state == GAMEPLAY) {
-            InteractWithObject(objectToInteractWith, current_dialogue, game_state, player, game_map, game_context);
+            InteractWithObject(objectToInteractWith, current_dialogue, game_state, player, game_map, game_context, game_audio);
         }
                 
         // Input Handling: Dialogue Progression and Choice Selection
         if (*game_state == DIALOGUE_CUTSCENE) {
-            InteractWithNPC(NULL, current_dialogue, game_state, game_context);
+            InteractWithNPC(NULL, current_dialogue, game_state, game_context, game_audio);
         }
                 
         // Input Handling: Narration Progression and Choice Selection
@@ -154,6 +154,8 @@ void RunGame(Character *player, Audio *game_audio, Settings *game_settings,
                 game_context->story.narration_current_line = 0;
                 game_context->story.narration_in_loop = false;
                 game_context->story.narration_showing_response = false;
+                game_context->story.narration_typing_index = 0;
+                game_context->story.narration_typing_timer = 0.0f;
             }
         }
                 

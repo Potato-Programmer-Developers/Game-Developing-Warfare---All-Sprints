@@ -282,6 +282,8 @@ static void StartDialogue(const char* path, Dialogue* dialogue, GameState* state
         dialogue->current_node_idx = 0;
         PrepareNodeText(dialogue, 0, ctx);
         dialogue->selected_choice = -1;
+        dialogue->typing_timer = 0.0f;
+        dialogue->typing_index = 0;
         dialogue->pending_target_map[0] = '\0';
         *state = DIALOGUE_CUTSCENE;
         // If the interactable ID is not NULL, register the NPC as met
@@ -299,7 +301,7 @@ static void StartDialogue(const char* path, Dialogue* dialogue, GameState* state
     }
 }
 
-void InteractWithNPC(NPC *npc, Dialogue* game_dialogue, GameState* game_state, struct GameContext* game_context) {
+void InteractWithNPC(NPC *npc, Dialogue* game_dialogue, GameState* game_state, struct GameContext* game_context, struct Audio* game_audio) {
     if (game_dialogue == NULL || game_state == NULL || game_context == NULL) return;
     // If the game state is gameplay and the NPC is not NULL, start the dialogue
     if (*game_state == GAMEPLAY && npc != NULL){
@@ -308,6 +310,23 @@ void InteractWithNPC(NPC *npc, Dialogue* game_dialogue, GameState* game_state, s
     // If the game state is dialogue cutscene, handle the dialogue
     else if (*game_state == DIALOGUE_CUTSCENE){
         DialogueNode* current_node = &game_dialogue->nodes[game_dialogue->current_node_idx];
+        
+        // Typing effect logic
+        const char *current_line_text = game_dialogue->lines[game_dialogue->current_line];
+        int line_len = strlen(current_line_text);
+        if (game_dialogue->typing_index < line_len) {
+            game_dialogue->typing_timer += GetFrameTime();
+            if (game_dialogue->typing_timer >= 0.03f) {
+                game_dialogue->typing_timer = 0.0f;
+                game_dialogue->typing_index++;
+                if (game_dialogue->typing_index >= line_len) {
+                    if (game_audio && IsSoundPlaying(game_audio->typing_sound)) StopSound(game_audio->typing_sound);
+                } else if (game_audio && !IsSoundPlaying(game_audio->typing_sound)) {
+                    PlaySound(game_audio->typing_sound);
+                }
+            }
+        }
+
         if (current_node->choice_count > 0 && game_dialogue->current_line >= game_dialogue->line_count - 1){
             int key = 0;
 
@@ -378,10 +397,16 @@ void InteractWithNPC(NPC *npc, Dialogue* game_dialogue, GameState* game_state, s
             }
         }
         if (IsKeyPressed(KEY_SPACE)) {
-            if (current_node->choice_count > 0 && game_dialogue->current_line >= game_dialogue->line_count - 1){
+            if (game_dialogue->typing_index < line_len) {
+                // Skip typing effect
+                game_dialogue->typing_index = line_len;
+                if (game_audio && IsSoundPlaying(game_audio->typing_sound)) StopSound(game_audio->typing_sound);
+            } else if (current_node->choice_count > 0 && game_dialogue->current_line >= game_dialogue->line_count - 1){
                 // Do nothing, force player to pick a choice.
             } else{
                 game_dialogue->current_line++;
+                game_dialogue->typing_timer = 0.0f;
+                game_dialogue->typing_index = 0;
                 if (game_dialogue->current_line >= game_dialogue->line_count){
                     if (current_node->choice_count == 0){
                         if (current_node->next_node != -1){
@@ -442,21 +467,16 @@ void InteractWithItem(Item *item, Dialogue *game_dialogue, GameState *game_state
     if (FileExists(item->base.dialoguePath)) StartDialogue(item->base.dialoguePath, game_dialogue, game_state, game_context, item->base.interactable_id);
 }
 
-void InteractWithObject(Interactable* obj, Dialogue* dialogue, GameState* state, Character* player, Map* map, struct GameContext* ctx){
-    // If the game state is dialogue cutscene, interact with the NPC to continue the dialogue
-    if (*state == DIALOGUE_CUTSCENE){
-        InteractWithNPC(NULL, dialogue, state, ctx); 
-        return;
-    }
-    if (obj == NULL || ctx == NULL) return;
-
-    // Dispatch the interaction to the appropriate function based on the object type
-    switch (obj->type){
-        case INTERACTABLE_TYPE_NPC: InteractWithNPC((NPC*)obj, dialogue, state, ctx); break;
-        case INTERACTABLE_TYPE_ITEM: InteractWithItem((Item*)obj, dialogue, state, player, ctx); break;
+void InteractWithObject(Interactable* obj, Dialogue* dialogue, GameState* state, Character* player, Map* map, struct GameContext* ctx, struct Audio* game_audio){
+    if (obj == NULL || dialogue == NULL || state == NULL || player == NULL || map == NULL || ctx == NULL) return;
+    if (obj->isActive){
+        switch (obj->type){
+        case INTERACTABLE_TYPE_NPC: InteractWithNPC((NPC*)obj, dialogue, state, ctx, game_audio); break;
         case INTERACTABLE_TYPE_DOOR: InteractWithDoor((Door*)obj, map, player, dialogue, state, ctx); break;
+        case INTERACTABLE_TYPE_ITEM: InteractWithItem((Item*)obj, dialogue, state, player, ctx); break;
+        default: break;
+        }
     }
-
     // Update the story conditions
     UpdateStoryConditions(ctx, dialogue, obj->interactable_id);
 }

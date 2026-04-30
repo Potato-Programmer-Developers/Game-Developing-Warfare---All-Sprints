@@ -189,6 +189,9 @@ void UpdateCharacter(Character *character, Settings *game_settings, Vector2 map_
             else PlaySound(audio->step_indoor);
             step_timer = 0;
         }
+    } else {
+        if (IsSoundPlaying(audio->step_outdoor)) StopSound(audio->step_outdoor);
+        if (IsSoundPlaying(audio->step_indoor)) StopSound(audio->step_indoor);
     }
 }
 

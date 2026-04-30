@@ -85,6 +85,8 @@ typedef struct Dialogue {
     int line_count;                                           // Total number of lines loaded
     int current_line;                                         // Index of the currently active line
     int selected_choice;                                      // Input from player
+    float typing_timer;                                       // Timer for progressive text
+    int typing_index;                                         // Current character index for text
 
     // Pending Transition (to be triggered when DIALOGUE ends)
     char pending_fade_color[32];                              // Fade color

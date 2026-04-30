@@ -799,20 +799,49 @@ void HandleNarrationInput(struct GameContext* game_context, int* game_state, str
         return;
     }
 
+    // Typing effect logic
+    const char* current_text = NULL;
+    if (story->narration_showing_response) {
+        current_text = story->narration_response_text;
+    } else if (!story->narration_in_loop && story->narration_current_line < active->narration_count) {
+        if (active->narration_lines[story->narration_current_line].type == 0) {
+            current_text = active->narration_lines[story->narration_current_line].text;
+        }
+    }
+
+    int text_len = current_text ? strlen(current_text) : 0;
+    if (current_text && story->narration_typing_index < text_len) {
+        story->narration_typing_timer += GetFrameTime();
+        if (story->narration_typing_timer >= 0.03f) {
+            story->narration_typing_timer = 0.0f;
+            story->narration_typing_index++;
+            if (story->narration_typing_index >= text_len) {
+                if (game_audio && IsSoundPlaying(game_audio->typing_sound)) StopSound(game_audio->typing_sound);
+            } else if (game_audio && !IsSoundPlaying(game_audio->typing_sound)) {
+                PlaySound(game_audio->typing_sound);
+            }
+        }
+    }
+
     // If showing a choice response, SPACE returns to loop
     if (story->narration_showing_response) {
         if (IsKeyPressed(KEY_SPACE)) {
-            story->narration_showing_response = false;
-            // Check if all choices are done
-            bool all_done = true;
-            for (int i = 0; i < active->narration_choice_count; i++) {
-                if (!active->narration_choices[i].completed) { all_done = false; break; }
-            }
-            if (all_done) {
-                // Narration loop complete, end narration
-                story->narration_active = false;
-                story->narration_in_loop = false;
-                *game_state = GAMEPLAY;
+            if (story->narration_typing_index < text_len) {
+                story->narration_typing_index = text_len;
+                if (game_audio && IsSoundPlaying(game_audio->typing_sound)) StopSound(game_audio->typing_sound);
+            } else {
+                story->narration_showing_response = false;
+                // Check if all choices are done
+                bool all_done = true;
+                for (int i = 0; i < active->narration_choice_count; i++) {
+                    if (!active->narration_choices[i].completed) { all_done = false; break; }
+                }
+                if (all_done) {
+                    // Narration loop complete, end narration
+                    story->narration_active = false;
+                    story->narration_in_loop = false;
+                    *game_state = GAMEPLAY;
+                }
             }
         }
         return;
@@ -844,6 +873,8 @@ void HandleNarrationInput(struct GameContext* game_context, int* game_state, str
                     
                     strncpy(story->narration_response_text, active->narration_choices[i].response, 255);
                     story->narration_showing_response = true;
+                    story->narration_typing_index = 0;
+                    story->narration_typing_timer = 0.0f;
                     // Apply state mutation
                     if (active->narration_choices[i].state_key[0] != '\0') {
                         ApplyStateMutation(game_context, active->narration_choices[i].state_key, active->narration_choices[i].state_value);
@@ -857,8 +888,14 @@ void HandleNarrationInput(struct GameContext* game_context, int* game_state, str
 
     // Normal text line advancement
     if (IsKeyPressed(KEY_SPACE)) {
-        // Advance to next narration line
-        story->narration_current_line++;
+        if (story->narration_typing_index < text_len) {
+            story->narration_typing_index = text_len;
+            if (game_audio && IsSoundPlaying(game_audio->typing_sound)) StopSound(game_audio->typing_sound);
+        } else {
+            // Advance to next narration line
+            story->narration_current_line++;
+            story->narration_typing_index = 0;
+            story->narration_typing_timer = 0.0f;
         
         // Skip through any [PLAY] sound lines immediately
         while (story->narration_current_line < active->narration_count) {
@@ -901,13 +938,13 @@ void HandleNarrationInput(struct GameContext* game_context, int* game_state, str
             }
         }
         
-        // Check if narration is exhausted
         if (story->narration_current_line >= active->narration_count) {
             if (active->narration_choice_count == 0) {
                 // No loop choices, just end narration
                 story->narration_active = false;
                 *game_state = GAMEPLAY;
             }
+        }
         }
     }
 }

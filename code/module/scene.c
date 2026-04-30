@@ -142,18 +142,23 @@ void DrawGame(Scene *game_scene, Settings *game_settings, Interactive *game_inte
             int box_y = GetScreenHeight() - required_height;
             
             // Get the current node's text
-            const char *line = game_dialogue->lines[game_dialogue->current_line];
-            DrawText(line, GetScreenWidth() / 2 - MeasureText(line, 20) / 2, box_y + 30, 20, WHITE);
+            const char *full_line = game_dialogue->lines[game_dialogue->current_line];
+            int line_len = strlen(full_line);
+            int start_x = GetScreenWidth() / 2 - MeasureText(full_line, 20) / 2;
+            const char *typed_line = TextSubtext(full_line, 0, game_dialogue->typing_index);
+            DrawText(typed_line, start_x, box_y + 30, 20, WHITE);
 
-            // Draw choices if we're at the end of the current node's text
-            if (has_choices){
-                for (int i = 0; i < current_node->choice_count; i++){
-                    char choiceText[128];
-                    sprintf(choiceText, "%d. %s", i + 1, current_node->choices[i]);
-                    DrawText(choiceText, 100, box_y + 80 + (i * 30), 20, YELLOW);
+            // Draw choices if we're at the end of the current node's text and typing is complete
+            if (game_dialogue->typing_index >= line_len) {
+                if (has_choices){
+                    for (int i = 0; i < current_node->choice_count; i++){
+                        char choiceText[128];
+                        sprintf(choiceText, "%d. %s", i + 1, current_node->choices[i]);
+                        DrawText(choiceText, 100, box_y + 80 + (i * 30), 20, YELLOW);
+                    }
+                } else if (game_dialogue->current_line < game_dialogue->line_count) {
+                    DrawText("Press 'SPACE' to continue", GetScreenWidth() - 300, GetScreenHeight() - 40, 20, GRAY);
                 }
-            } else if (game_dialogue->current_line < game_dialogue->line_count) {
-                DrawText("Press 'SPACE' to continue", GetScreenWidth() - 300, GetScreenHeight() - 40, 20, GRAY);
             }
         }
 
@@ -263,8 +268,13 @@ void DrawGame(Scene *game_scene, Settings *game_settings, Interactive *game_inte
             if (game_context->story.narration_showing_response){
                 // Show the response text for a chosen option
                 const char* resp = game_context->story.narration_response_text;
-                DrawText(resp, GetScreenWidth() / 2 - MeasureText(resp, 20) / 2, box_y + 30, 20, WHITE);
-                DrawText("Press 'SPACE' to continue", GetScreenWidth() - 300, GetScreenHeight() - 40, 20, GRAY);
+                int resp_len = strlen(resp);
+                int start_x = GetScreenWidth() / 2 - MeasureText(resp, 20) / 2;
+                const char *typed_resp = TextSubtext(resp, 0, game_context->story.narration_typing_index);
+                DrawText(typed_resp, start_x, box_y + 30, 20, WHITE);
+                if (game_context->story.narration_typing_index >= resp_len) {
+                    DrawText("Press 'SPACE' to continue", GetScreenWidth() - 300, GetScreenHeight() - 40, 20, GRAY);
+                }
             } else if (game_context->story.narration_in_loop){
                 // Show loop choices
                 DrawText("What should I do?", GetScreenWidth() / 2 - MeasureText("What should I do?", 20) / 2, box_y + 20, 20, WHITE);
@@ -281,8 +291,13 @@ void DrawGame(Scene *game_scene, Settings *game_settings, Interactive *game_inte
                 int line_idx = game_context->story.narration_current_line;
                 if (line_idx < active_phase->narration_count && active_phase->narration_lines[line_idx].type == 0){
                     const char* ntext = active_phase->narration_lines[line_idx].text;
-                    DrawText(ntext, GetScreenWidth() / 2 - MeasureText(ntext, 20) / 2, box_y + 30, 20, WHITE);
-                    DrawText("Press 'SPACE' to continue", GetScreenWidth() - 300, GetScreenHeight() - 40, 20, GRAY);
+                    int line_len = strlen(ntext);
+                    int start_x = GetScreenWidth() / 2 - MeasureText(ntext, 20) / 2;
+                    const char *typed_line = TextSubtext(ntext, 0, game_context->story.narration_typing_index);
+                    DrawText(typed_line, start_x, box_y + 30, 20, WHITE);
+                    if (game_context->story.narration_typing_index >= line_len) {
+                        DrawText("Press 'SPACE' to continue", GetScreenWidth() - 300, GetScreenHeight() - 40, 20, GRAY);
+                    }
                 }
             }
         }

@@ -50,6 +50,7 @@ Audio InitAudio(Settings* game_settings){
     new_audio.door_banging = LoadSound("../assets/audios/door_banging.mp3");
     new_audio.window_scraping = LoadSound("../assets/audios/window_scraping.mp3");
     new_audio.chimney_rustling = LoadSound("../assets/audios/chimney_rustling.mp3");
+    new_audio.typing_sound = LoadSound("../assets/audios/typing_sound.mp3");
 
     // 5. Start the background music loop immediately
     PlayMusicStream(new_audio.bg_music);
@@ -70,6 +71,7 @@ void CloseAudio(Audio* audio){
     UnloadSound(audio->door_banging);
     UnloadSound(audio->window_scraping);
     UnloadSound(audio->chimney_rustling);
+    UnloadSound(audio->typing_sound);
     
     // Shutdown the audio driver
     CloseAudioDevice();

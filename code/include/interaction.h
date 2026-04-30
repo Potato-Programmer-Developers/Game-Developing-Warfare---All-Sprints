@@ -139,7 +139,7 @@ void CheckInteractable(
  */
 void InteractWithObject(
     Interactable* objectToInteractWith, Dialogue* game_dialogue,
-    GameState* game_state, Character *player, Map *map, struct GameContext *game_context
+    GameState* game_state, Character *player, Map *map, struct GameContext *game_context, struct Audio *game_audio
 );
 
 /**
@@ -167,7 +167,7 @@ void InteractWithDoor(
  */
 void InteractWithNPC(
     NPC *npc, Dialogue *game_dialogue, GameState *game_state,
-    struct GameContext *game_context
+    struct GameContext *game_context, struct Audio *game_audio
 );
 
 /**
