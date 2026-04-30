@@ -1,0 +1,17 @@
+It’s coming tonight.
+No time to sleep.
+We need to prepare.
+What should you do first?
+[LOOP]
+    [CHOICE] Lock the main doors
+        [STATE] main_door_locked true
+    [CHOICE] Lock the windows
+        [STATE] windows_locked true
+    [CHOICE] Light up the fireplace
+        [STATE] fireplace_on true
+    [CHOICE] [ONLY_ONE] Setup the bear trap inside (Choose one only)
+        [STATE] bear_trap_inside true
+    [CHOICE] [ONLY_ONE] Setup the bear trap outside (Choose one only)
+        [STATE] bear_trap_outside true
+    [CHOICE] Take the room keys
+        [STATE] has_room_keys true

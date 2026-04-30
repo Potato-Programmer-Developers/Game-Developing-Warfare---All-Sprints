@@ -8,4 +8,5 @@
     [FADE] BLACK ../assets/map/map_ext/MAINMAP.json EXTERIOR
 [ELSE]
     [RESPONSE] You’re hopeless kid, go home. I’ll get your logs.
+    [KARMA] -
     [FADE] BLACK ../assets/map/map_ext/MAINMAP.json EXTERIOR

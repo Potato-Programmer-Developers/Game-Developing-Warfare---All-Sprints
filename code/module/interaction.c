@@ -60,6 +60,10 @@ static void RegisterMeetNPC(struct GameContext* game_context, const char* id){
     }
     if (game_context->met_npc_count < 64) {
         strncpy(game_context->met_npcs[game_context->met_npc_count], id, 63);
+        // Extract day number from day_folder (e.g., "day2" -> 2)
+        int day_num = 1;
+        if (sscanf(game_context->story.day_folder, "day%d", &day_num) != 1) day_num = 1;
+        game_context->met_npc_day[game_context->met_npc_count] = day_num;
         game_context->met_npc_set[game_context->met_npc_count] = game_context->story.current_set_idx;
         game_context->met_npc_phase[game_context->met_npc_count] = game_context->story.current_phase_idx;
         game_context->met_npc_count++;
@@ -92,6 +96,9 @@ static bool IsAllQuestsCompleted(StoryPhase* phase){
 static bool IsOtherQuestsPending(StoryPhase* phase, const char* target_id){
     if (!phase) return false;
     for (int i = 0; i < phase->condition_count; i++){
+        // ENTER_LOCATION conditions are fulfilled BY using a door, so never block doors for them
+        if (phase->end_conditions[i].type == CONDITION_ENTER_LOCATION) continue;
+        
         // If this condition is NOT about our current target, and its associated quest is NOT done
         if (strcmp(phase->end_conditions[i].target_id, target_id) != 0){
             if (i < phase->quest_count && !phase->quests[i].completed && strstr(phase->quests[i].description, "Explore") == NULL) {
@@ -130,7 +137,7 @@ static void UpdateStoryConditions(struct GameContext* game_context, Dialogue* ga
                 if ((int)cond->target_value == 0) cond->met = true;
                 else if (game_dialogue && game_dialogue->selected_choice == (int)cond->target_value - 1) cond->met = true;
             }
-        } else if (cond->type == CONDITION_COLLECT_OBJECTS){
+        } else if (cond->type == CONDITION_COLLECT_OBJECTS || cond->type == CONDITION_COLLIDE_OBJECTS){
             int collected = 0;
             for (int j = 0; j < game_context->picked_up_count; j++){
                 if (strstr(game_context->picked_up_registry[j], cond->target_id) != NULL){
@@ -144,39 +151,46 @@ static void UpdateStoryConditions(struct GameContext* game_context, Dialogue* ga
         }
     }
 
-    // Special case for SET5-PHASE2
-    if (strcmp(active->name, "SET5-PHASE2") == 0){
+    // Specialized and Generic Quest Mapping
+    if (strcmp(active->name, "SET5-PHASE2") == 0) {
         int small_collected = 0, big_collected = 0;
         int total_in_boxes = game_context->left_box_big + game_context->left_box_small + 
                              game_context->right_box_big + game_context->right_box_small;
 
-        // Count collected logs
-        for (int j = 0; j < game_context->picked_up_count; j++){
+        for (int j = 0; j < game_context->picked_up_count; j++) {
             if (strstr(game_context->picked_up_registry[j], "small_logs")) small_collected++;
             else if (strstr(game_context->picked_up_registry[j], "big_logs")) big_collected++;
         }
 
-        // Update conditions
-        if (active->condition_count >= 2){
+        if (active->condition_count >= 2) {
             active->end_conditions[0].current_count = small_collected;
             if (small_collected >= (int)active->end_conditions[0].target_value) active->end_conditions[0].met = true;
             active->end_conditions[1].current_count = big_collected;
             if (big_collected >= (int)active->end_conditions[1].target_value) active->end_conditions[1].met = true;
         }
 
-        // Update quests
-        if (active->quest_count > 0) active->quests[0].completed = (small_collected + big_collected >= 15);
-        if (active->quest_count > 1) active->quests[1].completed = (total_in_boxes >= 15);
+        // Quest 0: Pick up logs (Only done if BOTH types collected)
+        if (active->quest_count > 0) {
+            active->quests[0].completed = (active->end_conditions[0].met && active->end_conditions[1].met);
+        }
+        // Quest 1: Put them in boxes
+        if (active->quest_count > 1) {
+            active->quests[1].completed = (total_in_boxes >= 15);
+        }
 
-        // Update conditions
-        if (total_in_boxes >= 15 && active->condition_count >= 4){
+        if (total_in_boxes >= 15 && active->condition_count >= 4) {
              active->end_conditions[2].met = true;
              active->end_conditions[3].met = true;
         }
-    } else{
-        for (int i = 0; i < active->condition_count; i++){
-            // Update quests
-            if (active->end_conditions[i].met && i < active->quest_count) active->quests[i].completed = true;
+    } else if (strcmp(active->name, "SET2-PHASE2") == 0 && strcmp(game_context->story.day_folder, "day3") == 0) {
+        // Day 3 SET2-PHASE2 Specialized Mapping: Quest 0 (Mow grass) needs Condition 1 (Grass met)
+        if (active->condition_count >= 2 && active->quest_count >= 1) {
+            if (active->end_conditions[1].met) active->quests[0].completed = true;
+        }
+    } else {
+        // Generic 1:1 Mapping - fallback for simple phases
+        for (int i = 0; i < active->condition_count && i < active->quest_count; i++) {
+            if (active->end_conditions[i].met) active->quests[i].completed = true;
         }
     }
 }
@@ -187,7 +201,7 @@ static void UpdateStoryConditions(struct GameContext* game_context, Dialogue* ga
  * @param dialogue Pointer to the dialogue system.
  * @param node_idx Index of the dialogue node to prepare.
  */
-static void PrepareNodeText(Dialogue* dialogue, int node_idx){
+static void PrepareNodeText(Dialogue* dialogue, int node_idx, struct GameContext* ctx){
     if (node_idx < 0 || node_idx >= MAX_DIALOGUE_LINES) return;
     DialogueNode* node = &dialogue->nodes[node_idx];
     if (node->response_count == 0){
@@ -197,17 +211,57 @@ static void PrepareNodeText(Dialogue* dialogue, int node_idx){
     // If the node is a conversation, copy all responses to the lines array
     if (node->is_conversation){
         for (int i = 0; i < node->response_count; i++){
+            // For conversations, we might just mark them as used
+            if (node->response_once[i]) MarkResponseUsed(ctx, node->responses[i]);
             strncpy(dialogue->lines[i], node->responses[i], MAX_LINE_LENGTH - 1);
         }
         dialogue->line_count = node->response_count;
         dialogue->current_line = 0;
     } else{
         // If the node is not a conversation, copy a random response to the lines array
+        int valid_indices[10];
+        int valid_count = 0;
+        for (int i = 0; i < node->response_count; i++){
+            if (!node->response_once[i] || !IsResponseUsed(ctx, node->responses[i])) {
+                valid_indices[valid_count++] = i;
+            }
+        }
         int r_idx = 0;
-        if (node->response_count > 1) r_idx = rand() % node->response_count;
+        if (valid_count > 0) {
+            if (valid_count > 1) r_idx = valid_indices[rand() % valid_count];
+            else r_idx = valid_indices[0];
+        } else {
+            // Fallback if all once-lines are used
+            r_idx = rand() % node->response_count;
+        }
+        if (node->response_once[r_idx]) MarkResponseUsed(ctx, node->responses[r_idx]);
         strncpy(dialogue->lines[0], node->responses[r_idx], MAX_LINE_LENGTH - 1);
         dialogue->line_count = 1;
         dialogue->current_line = 0;
+    }
+}
+
+static void ApplyNodeSideEffects(DialogueNode* node, struct GameContext* context, const char* interactable_id) {
+    if (!node || !context) return;
+    if (node->sanity_change != 0){
+        context->player->sanity += node->sanity_change;
+        if (context->player->sanity < 0) context->player->sanity = 0;
+        if (context->player->sanity > 100) context->player->sanity = 100;
+    }
+    if (node->karma_change != 0) UpdateAssetKarma(interactable_id, node->karma_change);
+    if (node->plant_seed_type > 0 && interactable_id) {
+        for (int i = 0; i < 18; i++) {
+            if (context->pot_registry[i].pot_id[0] == '\0') {
+                strncpy(context->pot_registry[i].pot_id, interactable_id, 63);
+                context->pot_registry[i].is_planted = true;
+                context->pot_registry[i].seed_type = node->plant_seed_type;
+                break;
+            } else if (strcmp(context->pot_registry[i].pot_id, interactable_id) == 0) {
+                context->pot_registry[i].is_planted = true;
+                context->pot_registry[i].seed_type = node->plant_seed_type;
+                break;
+            }
+        }
     }
 }
 
@@ -222,12 +276,14 @@ static void PrepareNodeText(Dialogue* dialogue, int node_idx){
  */
 static void StartDialogue(const char* path, Dialogue* dialogue, GameState* state, struct GameContext* ctx, const char* interactable_id){
     if (!path || !dialogue || !state || !ctx) return;
-    LoadInteraction(path, dialogue, ctx);
+    LoadInteraction(path, dialogue, ctx, interactable_id);
     // If the dialogue has nodes, start the dialogue
     if (dialogue->node_count > 0){
         dialogue->current_node_idx = 0;
-        PrepareNodeText(dialogue, 0);
+        PrepareNodeText(dialogue, 0, ctx);
         dialogue->selected_choice = -1;
+        dialogue->typing_timer = 0.0f;
+        dialogue->typing_index = 0;
         dialogue->pending_target_map[0] = '\0';
         *state = DIALOGUE_CUTSCENE;
         // If the interactable ID is not NULL, register the NPC as met
@@ -235,6 +291,7 @@ static void StartDialogue(const char* path, Dialogue* dialogue, GameState* state
             strncpy(current_interactable_id, interactable_id, 63);
             RegisterMeetNPC(ctx, interactable_id);
         }
+        ApplyNodeSideEffects(&dialogue->nodes[0], ctx, current_interactable_id);
         // If the node has a target map, set the pending target map
         if (dialogue->nodes[0].target_map[0] != '\0'){
             strncpy(dialogue->pending_fade_color, dialogue->nodes[0].fade_color, 31);
@@ -244,7 +301,7 @@ static void StartDialogue(const char* path, Dialogue* dialogue, GameState* state
     }
 }
 
-void InteractWithNPC(NPC *npc, Dialogue* game_dialogue, GameState* game_state, struct GameContext* game_context) {
+void InteractWithNPC(NPC *npc, Dialogue* game_dialogue, GameState* game_state, struct GameContext* game_context, struct Audio* game_audio) {
     if (game_dialogue == NULL || game_state == NULL || game_context == NULL) return;
     // If the game state is gameplay and the NPC is not NULL, start the dialogue
     if (*game_state == GAMEPLAY && npc != NULL){
@@ -253,6 +310,23 @@ void InteractWithNPC(NPC *npc, Dialogue* game_dialogue, GameState* game_state, s
     // If the game state is dialogue cutscene, handle the dialogue
     else if (*game_state == DIALOGUE_CUTSCENE){
         DialogueNode* current_node = &game_dialogue->nodes[game_dialogue->current_node_idx];
+        
+        // Typing effect logic
+        const char *current_line_text = game_dialogue->lines[game_dialogue->current_line];
+        int line_len = strlen(current_line_text);
+        if (game_dialogue->typing_index < line_len) {
+            game_dialogue->typing_timer += GetFrameTime();
+            if (game_dialogue->typing_timer >= 0.03f) {
+                game_dialogue->typing_timer = 0.0f;
+                game_dialogue->typing_index++;
+                if (game_dialogue->typing_index >= line_len) {
+                    if (game_audio && IsSoundPlaying(game_audio->typing_sound)) StopSound(game_audio->typing_sound);
+                } else if (game_audio && !IsSoundPlaying(game_audio->typing_sound)) {
+                    PlaySound(game_audio->typing_sound);
+                }
+            }
+        }
+
         if (current_node->choice_count > 0 && game_dialogue->current_line >= game_dialogue->line_count - 1){
             int key = 0;
 
@@ -303,14 +377,9 @@ void InteractWithNPC(NPC *npc, Dialogue* game_dialogue, GameState* game_state, s
 
                 if (next_node_idx != -1){
                     game_dialogue->current_node_idx = next_node_idx;
-                    PrepareNodeText(game_dialogue, next_node_idx);
+                    PrepareNodeText(game_dialogue, next_node_idx, game_context);
                     DialogueNode* next_node = &game_dialogue->nodes[next_node_idx];
-                    if (next_node->sanity_change != 0){
-                        game_context->player->sanity += next_node->sanity_change;
-                        if (game_context->player->sanity < 0) game_context->player->sanity = 0;
-                        if (game_context->player->sanity > 100) game_context->player->sanity = 100;
-                    }
-                    if (next_node->karma_change != 0) UpdateAssetKarma(current_interactable_id, next_node->karma_change);
+                    ApplyNodeSideEffects(next_node, game_context, current_interactable_id);
                     UpdateStoryConditions(game_context, game_dialogue, current_interactable_id);
                     if (next_node->target_map[0] != '\0'){
                         strncpy(game_dialogue->pending_fade_color, next_node->fade_color, 31);
@@ -328,15 +397,22 @@ void InteractWithNPC(NPC *npc, Dialogue* game_dialogue, GameState* game_state, s
             }
         }
         if (IsKeyPressed(KEY_SPACE)) {
-            if (current_node->choice_count > 0 && game_dialogue->current_line >= game_dialogue->line_count - 1){
+            if (game_dialogue->typing_index < line_len) {
+                // Skip typing effect
+                game_dialogue->typing_index = line_len;
+                if (game_audio && IsSoundPlaying(game_audio->typing_sound)) StopSound(game_audio->typing_sound);
+            } else if (current_node->choice_count > 0 && game_dialogue->current_line >= game_dialogue->line_count - 1){
                 // Do nothing, force player to pick a choice.
             } else{
                 game_dialogue->current_line++;
+                game_dialogue->typing_timer = 0.0f;
+                game_dialogue->typing_index = 0;
                 if (game_dialogue->current_line >= game_dialogue->line_count){
                     if (current_node->choice_count == 0){
                         if (current_node->next_node != -1){
                             game_dialogue->current_node_idx = current_node->next_node;
-                            PrepareNodeText(game_dialogue, current_node->next_node);
+                            PrepareNodeText(game_dialogue, current_node->next_node, game_context);
+                            ApplyNodeSideEffects(&game_dialogue->nodes[current_node->next_node], game_context, current_interactable_id);
                         } else{
                             if (current_node->triggers_phone) game_context->story.narration_pending = true;
                             UpdateStoryConditions(game_context, game_dialogue, current_interactable_id);
@@ -370,6 +446,10 @@ void InteractWithItem(Item *item, Dialogue *game_dialogue, GameState *game_state
     }
     // If the item is a pickup item
     if (item->is_pickup){
+        if (strcmp(item->base.interactable_id, "lawnmower") == 0) {
+            StoryPhase* active = GetActivePhase(&game_context->story);
+            if (!active || strcmp(active->name, "SET2-PHASE2") != 0) return;
+        }
         strcpy(player->inventory[player->inventory_count], item->base.interactable_id);
         player->item_count[player->inventory_count] = 1; player->inventory_count++;
         item->picked_up = true; RegisterPickup(game_context, item->base.interactable_id);
@@ -387,21 +467,16 @@ void InteractWithItem(Item *item, Dialogue *game_dialogue, GameState *game_state
     if (FileExists(item->base.dialoguePath)) StartDialogue(item->base.dialoguePath, game_dialogue, game_state, game_context, item->base.interactable_id);
 }
 
-void InteractWithObject(Interactable* obj, Dialogue* dialogue, GameState* state, Character* player, Map* map, struct GameContext* ctx){
-    // If the game state is dialogue cutscene, interact with the NPC to continue the dialogue
-    if (*state == DIALOGUE_CUTSCENE){
-        InteractWithNPC(NULL, dialogue, state, ctx); 
-        return;
-    }
-    if (obj == NULL || ctx == NULL) return;
-
-    // Dispatch the interaction to the appropriate function based on the object type
-    switch (obj->type){
-        case INTERACTABLE_TYPE_NPC: InteractWithNPC((NPC*)obj, dialogue, state, ctx); break;
-        case INTERACTABLE_TYPE_ITEM: InteractWithItem((Item*)obj, dialogue, state, player, ctx); break;
+void InteractWithObject(Interactable* obj, Dialogue* dialogue, GameState* state, Character* player, Map* map, struct GameContext* ctx, struct Audio* game_audio){
+    if (obj == NULL || dialogue == NULL || state == NULL || player == NULL || map == NULL || ctx == NULL) return;
+    if (obj->isActive){
+        switch (obj->type){
+        case INTERACTABLE_TYPE_NPC: InteractWithNPC((NPC*)obj, dialogue, state, ctx, game_audio); break;
         case INTERACTABLE_TYPE_DOOR: InteractWithDoor((Door*)obj, map, player, dialogue, state, ctx); break;
+        case INTERACTABLE_TYPE_ITEM: InteractWithItem((Item*)obj, dialogue, state, player, ctx); break;
+        default: break;
+        }
     }
-
     // Update the story conditions
     UpdateStoryConditions(ctx, dialogue, obj->interactable_id);
 }
@@ -411,12 +486,18 @@ void InteractWithDoor(Door *door, Map *map, Character *player, Dialogue *game_di
     StoryPhase* active = GetActivePhase(&game_context->story);
     if (IsOtherQuestsPending(active, door->base.interactable_id)) return;
 
-    // If the door has a dialogue path, start the dialogue
-    if (FileExists(door->base.dialoguePath)){
-        StartDialogue(door->base.dialoguePath, game_dialogue, game_state, game_context, door->base.interactable_id);
-    } else{
-        StartFadeTransition(game_context->game_scene, BLACK, door->targetMapPath, "DEFAULT");
+    // Determine target location string based on the door's targetLocation enum
+    const char* target_loc = "INTERIOR"; // Default
+    switch (door->targetLocation) {
+        case APARTMENT: target_loc = "APARTMENT"; break;
+        case EXTERIOR:  target_loc = "EXTERIOR"; break;
+        case INTERIOR:  target_loc = "INTERIOR"; break;
+        case FARM:      target_loc = "FARM"; break;
+        case FOREST:    target_loc = "FOREST"; break;
     }
+
+    // Always transition silently using the door's hardcoded target
+    StartFadeTransition(game_context->game_scene, BLACK, door->targetMapPath, target_loc, NULL);
 }
 
 void LoadNPCs(NPC npcs[], int count){
@@ -467,6 +548,11 @@ void CheckInteractable(NPC worldNPCs[], Item worldItems[], Door worldDoors[], in
     // Check for Items
     for (int i = 0; i < itemCount; i++) {
         if (!worldItems[i].picked_up && CheckCollisionRecs(playerHitbox, worldItems[i].base.bounds)) {
+            // Brown grass is handled passively, so don't show the "!" tooltip or allow manual interaction
+            if (strstr(worldItems[i].base.interactable_id, "brown_grass") != NULL) {
+                worldItems[i].base.isActive = false;
+                continue;
+            }
             worldItems[i].base.isActive = true;
             float dist = Vector2Distance(playerPos, (Vector2){worldItems[i].base.bounds.x, worldItems[i].base.bounds.y});
             if (dist < min_dist) { min_dist = dist; *objectToInteractWith = (Interactable*)&worldItems[i]; }
@@ -479,5 +565,70 @@ void CheckInteractable(NPC worldNPCs[], Item worldItems[], Door worldDoors[], in
             float dist = Vector2Distance(playerPos, (Vector2){worldDoors[i].base.bounds.x, worldDoors[i].base.bounds.y});
             if (dist < min_dist) { min_dist = dist; *objectToInteractWith = (Interactable*)&worldDoors[i]; }
         } else worldDoors[i].base.isActive = false;
+    }
+}
+
+void UpdateDay3Mowing(struct GameContext* game_context) {
+    if (strcmp(game_context->story.day_folder, "day3") != 0) return;
+    
+    StoryPhase* active = GetActivePhase(&game_context->story);
+    if (!active || strcmp(active->name, "SET2-PHASE2") != 0) return;
+
+    // Check if player has the lawnmower
+    bool has_lawnmower = false;
+    for (int i = 0; i < game_context->picked_up_count; i++) {
+        if (strcmp(game_context->picked_up_registry[i], "lawnmower") == 0) {
+            has_lawnmower = true; 
+            break;
+        }
+    }
+    if (!has_lawnmower) return;
+    
+    // Find lawnmower item to get texture size
+    float mower_w = 64.0f;
+    float mower_h = 64.0f;
+    for (int i = 0; i < game_context->itemCount; i++) {
+        if (strcmp(game_context->worldItems[i].base.interactable_id, "lawnmower") == 0) {
+            if (game_context->worldItems[i].base.texture.id != 0) {
+                mower_w = (float)game_context->worldItems[i].base.texture.width;
+                mower_h = (float)game_context->worldItems[i].base.texture.height;
+            }
+            break;
+        }
+    }
+
+    // Compute lawnmower rect relative to player direction
+    Rectangle lawnmower_rect = {0, 0, mower_w, mower_h};
+    Character* player = game_context->player;
+    switch (player->direction) {
+        case 0: // down
+            lawnmower_rect.x = player->position.x + player->size.x / 2.0f - mower_w / 2.0f; 
+            lawnmower_rect.y = player->position.y + player->size.y; 
+            break; 
+        case 1: // left
+            lawnmower_rect.x = player->position.x - mower_w; 
+            lawnmower_rect.y = player->position.y + player->size.y - mower_h; 
+            break; 
+        case 2: // right
+            lawnmower_rect.x = player->position.x + player->size.x; 
+            lawnmower_rect.y = player->position.y + player->size.y - mower_h; 
+            break; 
+        case 3: // up
+            lawnmower_rect.x = player->position.x + player->size.x / 2.0f - mower_w / 2.0f; 
+            lawnmower_rect.y = player->position.y - mower_h; 
+            break; 
+    }
+    
+    // Check collision with un-mowed brown grass
+    for (int i = 0; i < game_context->itemCount; i++) {
+        Item* item = &game_context->worldItems[i];
+        if (!item->picked_up && strstr(item->base.interactable_id, "brown_grass") != NULL) {
+            if (CheckCollisionRecs(lawnmower_rect, item->base.bounds)) {
+                // Mow the grass (effectively "picking it up")
+                item->picked_up = true;
+                RegisterPickup(game_context, item->base.interactable_id);
+                UpdateStoryConditions(game_context, NULL, item->base.interactable_id);
+            }
+        }
     }
 }

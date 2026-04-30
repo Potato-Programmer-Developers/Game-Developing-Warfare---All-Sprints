@@ -73,7 +73,7 @@ void ApplyData(struct GameContext* context, Settings* game_settings, Data* data)
         // Map & Location Restoration
         if (data->map_path[0] != '\0' && strcmp(data->map_path, context->map->current_path) != 0) {
             FreeMap(context->map);
-            *(context->map) = InitMap(data->map_path);
+            *(context->map) = InitMap(data->map_path, NULL);
         }
         
         // Restore quest completion for active phase
@@ -91,6 +91,17 @@ void ApplyData(struct GameContext* context, Settings* game_settings, Data* data)
     context->picked_up_count = data->picked_up_count;
     for (int i = 0; i < data->picked_up_count && i < 512; i++){
         strncpy(context->picked_up_registry[i], data->picked_up_registry[i], 63);
+    }
+    for (int i = 0; i < 18; i++) context->pot_registry[i] = data->pot_registry[i];
+    for (int i = 0; i < data->used_lines_count && i < 256; i++) {
+        context->dialogue_used_lines[i] = data->dialogue_used_lines[i];
+    }
+    context->met_npc_count = data->met_npc_count;
+    for (int i = 0; i < data->met_npc_count && i < 64; i++) {
+        strncpy(context->met_npcs[i], data->met_npcs[i], 63);
+        context->met_npc_day[i] = data->met_npc_day[i];
+        context->met_npc_set[i] = data->met_npc_set[i];
+        context->met_npc_phase[i] = data->met_npc_phase[i];
     }
 
     // 4. Restore Karma
@@ -135,6 +146,17 @@ void SaveData(struct GameContext* context, Settings* game_settings){
     for (int i = 0; i < context->picked_up_count && i < 512; i++){
         strncpy(data.picked_up_registry[i], context->picked_up_registry[i], 63);
     }
+    for (int i = 0; i < 18; i++) data.pot_registry[i] = context->pot_registry[i];
+    for (int i = 0; i < context->used_lines_count && i < 256; i++) {
+        data.dialogue_used_lines[i] = context->dialogue_used_lines[i];
+    }
+    data.met_npc_count = context->met_npc_count;
+    for (int i = 0; i < context->met_npc_count && i < 64; i++) {
+        strncpy(data.met_npcs[i], context->met_npcs[i], 63);
+        data.met_npc_day[i] = context->met_npc_day[i];
+        data.met_npc_set[i] = context->met_npc_set[i];
+        data.met_npc_phase[i] = context->met_npc_phase[i];
+    }
 
     // 4. Harvest Karma
     GetRegistryKarma(data.npc_karma, 64);
@@ -163,6 +185,16 @@ void ResetGameData(struct GameContext* context, Vector2 default_spawn){
     context->picked_up_count = 0;
     for (int i = 0; i < 512; i++){
         memset(context->picked_up_registry[i], 0, 64);
+    }
+    memset(context->pot_registry, 0, sizeof(context->pot_registry));
+    memset(context->dialogue_used_lines, 0, sizeof(context->dialogue_used_lines));
+    context->used_lines_count = 0;
+    context->met_npc_count = 0;
+    for (int i = 0; i < 64; i++) {
+        memset(context->met_npcs[i], 0, 64);
+        context->met_npc_day[i] = 0;
+        context->met_npc_set[i] = 0;
+        context->met_npc_phase[i] = 0;
     }
     
     // Reset Story

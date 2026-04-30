@@ -1,0 +1,34 @@
+[IF] MAIN_DOOR_LOCKED AND WINDOWS_LOCKED AND FIREPLACE_ON AND BEAR_TRAP_OUTSIDE
+    [SANITY] +
+    [PHONE] 730-187-15
+        [MESSAGE] You should know.
+        [MESSAGE] You can’t hide forever.
+        [MESSAGE] You can run from me.
+        [MESSAGE] But I will return.
+        [MESSAGE] You can try to forget.
+        [MESSAGE] But I won’t let you.
+[ELSE IF] MAIN_DOOR_LOCKED AND WINDOWS_LOCKED AND FIREPLACE_ON AND BEAR_TRAP_INSIDE
+    [PHONE] 730-187-15
+        [MESSAGE] You should know.
+        [MESSAGE] You can’t hide forever.
+        [MESSAGE] You can run from me.
+        [MESSAGE] But I will return.
+        [MESSAGE] You can try to forget.
+        [MESSAGE] But I won’t let you.
+[ELSE IF] BEAR_TRAP_INSIDE
+    [PHONE] 730-187-15
+        [MESSAGE] You should know.
+        [MESSAGE] You can’t hide forever.
+        [MESSAGE] You can run from me.
+        [MESSAGE] But I will return.
+        [MESSAGE] You can try to forget.
+        [MESSAGE] But I won’t let you.
+[ELSE IF] BEAR_TRAP_OUTSIDE
+    [SANITY] -
+    [PHONE] 730-187-15
+        [MESSAGE] You should know.
+        [MESSAGE] You can’t hide forever.
+        [MESSAGE] You can run from me.
+        [MESSAGE] But I will return.
+        [MESSAGE] You can try to forget.
+        [MESSAGE] But I won’t let you.

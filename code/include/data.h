@@ -43,6 +43,16 @@ typedef struct Data {
     // --- World State ---
     char picked_up_registry[512][64];                                 // Tracking which items have been removed from the world
     int picked_up_count;                                             // Total number of items collected
+    
+    char met_npcs[64][64];                                           // Registry of unique NPC IDs spoken to
+    int met_npc_day[64];                                             // Day index when met
+    int met_npc_set[64];                                             // Set index when met
+    int met_npc_phase[64];                                           // Phase index when met
+    int met_npc_count;                                               // Number of NPCs spoken to
+
+    PotStatus pot_registry[18];                                      // Planted tracking for Day 2
+    UsedRegistry dialogue_used_lines[256];                           // Once-only lines memory
+    int used_lines_count;                                            // Count of used lines
 
     // --- Settings ---
     float volume;                                                    // User-defined audio volume

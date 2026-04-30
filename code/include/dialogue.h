@@ -49,6 +49,7 @@ typedef struct {
  */
 typedef struct {
     char responses[10][MAX_LINE_LENGTH]; // NPC can say one of these (or all if conversation)
+    bool response_once[10];              // If true, response plays only once across sessions
     int response_count;                  // Number of available responses
     bool is_conversation;                // If true, play responses sequentially
     char choices[4][64];                 // Player can say...
@@ -58,6 +59,7 @@ typedef struct {
     int choice_count;                    // Current choices in this node
     int sanity_change;                   // Sanity impact of reaching this node
     int karma_change;                    // Karma impact of reaching this node
+    int plant_seed_type;                 // Seed type to plant in an interactable pot
     char fade_color[32];                 // Custom fade color (BLACK, WHITE, etc)
     char target_map[128];                // Optional fade target
     char target_loc[32];                 // Optional fade location
@@ -83,6 +85,8 @@ typedef struct Dialogue {
     int line_count;                                           // Total number of lines loaded
     int current_line;                                         // Index of the currently active line
     int selected_choice;                                      // Input from player
+    float typing_timer;                                       // Timer for progressive text
+    int typing_index;                                         // Current character index for text
 
     // Pending Transition (to be triggered when DIALOGUE ends)
     char pending_fade_color[32];                              // Fade color
@@ -113,6 +117,9 @@ const char* PickResponse(ResponseGroup* group, const char* filename);
  * @param filename FS path to the .txt interaction source.
  * @param dialogue Pointer to the Dialogue object to load the interaction into.
  */
-void LoadInteraction(const char* filename, Dialogue* dialogue, struct GameContext* context);
+void LoadInteraction(const char* filename, Dialogue* dialogue, struct GameContext* context, const char* interactable_id);
+
+bool IsResponseUsed(struct GameContext* context, const char* text);
+void MarkResponseUsed(struct GameContext* context, const char* text);
 
 #endif

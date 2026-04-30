@@ -33,6 +33,17 @@ typedef struct Item Item;
 typedef struct Door Door;
 typedef struct Scene Scene;
 struct Dialogue;
+struct Settings; // Forward Declaration
+
+typedef struct {
+    char text[64];
+} UsedRegistry;
+
+typedef struct {
+    char pot_id[64];
+    bool is_planted;
+    int seed_type;              // 1: Tomato, 2: Lettuce, 3: Potato
+} PotStatus;
 
 /**
  * @brief Global container for session-persistent data.
@@ -67,12 +78,17 @@ typedef struct GameContext {
     int left_box_small;                 // Number of small boxes on the left
     int right_box_big;                  // Number of big boxes on the right
     int right_box_small;                // Number of small boxes on the right
+    float day3_mowing_timer;            // Timer for Day 3 mowing performance
 
     bool fireplace_on;                  // Tracks if the fireplace is burning (SET7)
     bool doors;                         // Tracks if INTERIOR doors are active/drawn
     bool main_door_locked;              // Nightly: main door locked state
     bool windows_locked;                // Nightly: windows locked state
     bool has_room_keys;                 // Nightly: player has room keys
+    bool look_outside;                  // Nightly: looked outside before sleep
+    bool bear_trap_inside;              // Nightly: bear trap placed inside
+    bool bear_trap_outside;             // Nightly: bear trap placed outside
+    char last_narration_action[32];     // Nightly: last choice made before bed
 
     // Dream Sequence State
     bool dream_active;                  // Flag for active dream sequence
@@ -88,9 +104,14 @@ typedef struct GameContext {
     int picked_up_count;                // Number of unique items picked up
     
     char met_npcs[64][64];            // Registry of unique NPC IDs spoken to
+    int met_npc_day[64];              // Day index when met
     int met_npc_set[64];              // Set index when met
     int met_npc_phase[64];            // Phase index when met
     int met_npc_count;                // Number of NPCs spoken to
+
+    PotStatus pot_registry[18];       // Tracking for Day 2 planting mechanic
+    UsedRegistry dialogue_used_lines[256]; // Persisting once-only responses
+    int used_lines_count;             // Number of lines that have been used
 } GameContext;
 
 

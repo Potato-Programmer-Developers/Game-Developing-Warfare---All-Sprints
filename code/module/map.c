@@ -4,7 +4,7 @@
 #include <string.h>
 #include "map.h"
 
-Map InitMap(const char* path){
+Map InitMap(const char* path, const char* spawn_id){
     Map map = {0};
     strncpy(map.current_path, path, 127);
     map.tiled_map = cute_tiled_load_map_from_file(path, NULL);
@@ -28,13 +28,14 @@ Map InitMap(const char* path){
         tileset = tileset->next;
     }
 
-    // Search for a specialized "Spawn" object
+    // Search for a specialized spawn object
+    const char* target_spawn = (spawn_id && spawn_id[0] != '\0') ? spawn_id : "Spawn";
     cute_tiled_layer_t* layer = map.tiled_map->layers;
     while (layer){
         if (strcmp(layer->type.ptr, "objectgroup") == 0){
             cute_tiled_object_t* object = layer->objects;
             while (object){
-                if (object->name.ptr && strcmp(object->name.ptr, "Spawn") == 0) {
+                if (object->name.ptr && strcmp(object->name.ptr, target_spawn) == 0) {
                     map.spawn_position = (Vector2){(float)object->x, (float)object->y};
                     return map;
                 }
@@ -47,7 +48,7 @@ Map InitMap(const char* path){
     return map;
 }
 
-void DrawMap(Map* map, bool fireplace_on, bool doors){
+void DrawMap(Map* map, bool fireplace_on, bool doors, bool day2_active, int set_idx){
     if (!map || !map->tiled_map) return;
     cute_tiled_layer_t* layer = map->tiled_map->layers;
     while (layer){
@@ -59,6 +60,20 @@ void DrawMap(Map* map, bool fireplace_on, bool doors){
             if (!doors && layer->name.ptr && strcmp(layer->name.ptr, "doors") == 0) {
                 layer = layer->next;
                 continue;
+            }
+            
+            // Logic: Skip pot tiles in Day 1. Skip clues tile layer unless specifically in Day 2 SET 1.
+            if (layer->name.ptr) {
+                if (strcmp(layer->name.ptr, "pot") == 0 && !day2_active) {
+                    layer = layer->next;
+                    continue;
+                }
+                if (strcmp(layer->name.ptr, "clues") == 0) {
+                    if (!(day2_active && set_idx == 0)) {
+                        layer = layer->next;
+                        continue;
+                    }
+                }
             }
             for (int i = 0; i < layer->data_count; i++){
                 unsigned int raw_gid = (unsigned int)layer->data[i];
@@ -82,6 +97,10 @@ void DrawMap(Map* map, bool fireplace_on, bool doors){
                     int x = i % layer->width;
                     int y = i / layer->width;
 
+                    // Use the MAP's tile size for grid positioning
+                    int map_tw = map->tiled_map->tilewidth;
+                    int map_th = map->tiled_map->tileheight;
+
                     bool flip_h = (raw_gid & CUTE_TILED_FLIPPED_HORIZONTALLY_FLAG) != 0;
                     bool flip_v = (raw_gid & CUTE_TILED_FLIPPED_VERTICALLY_FLAG) != 0;
                     bool flip_d = (raw_gid & CUTE_TILED_FLIPPED_DIAGONALLY_FLAG) != 0;
@@ -103,9 +122,14 @@ void DrawMap(Map* map, bool fireplace_on, bool doors){
                     if (flip_h) source.width = -source.width;
                     if (flip_v) source.height = -source.height;
 
+                    // Position on map grid using map tile size, but draw at the tile's actual size
+                    // Center the tile within the grid cell, aligned to the bottom
+                    float dest_x = (float)(x * map_tw) + map_tw / 2.0f;
+                    float dest_y = (float)(y * map_th) + map_th - tileset->tileheight / 2.0f;
+                    
                     Rectangle dest = {
-                        (float)(x * tileset->tilewidth) + tileset->tilewidth / 2.0f,
-                        (float)(y * tileset->tileheight) + tileset->tileheight / 2.0f,
+                        dest_x,
+                        dest_y,
                         (float)tileset->tilewidth, (float)tileset->tileheight
                     };
                     Vector2 origin = {tileset->tilewidth / 2.0f, tileset->tileheight / 2.0f};
@@ -125,16 +149,29 @@ void FreeMap(Map* map){
     if (map->tiled_map) cute_tiled_free_map(map->tiled_map);
 }
 
-bool CheckMapCollision(Map* map, Rectangle rect, char picked_up_registry[][64], int picked_up_count){
+bool CheckMapCollision(Map* map, Rectangle rect, char picked_up_registry[][64], int picked_up_count, bool day2_active){
     if (!map || !map->tiled_map) return false;
     cute_tiled_layer_t* layer = map->tiled_map->layers;
     while (layer){
         if (strcmp(layer->type.ptr, "objectgroup") == 0){
+            // Logic: Clues layer NEVER has collision (interaction only). Pot has collision in Day 2+ only.
+            if (layer->name.ptr) {
+                if (strcmp(layer->name.ptr, "clues") == 0) {
+                    layer = layer->next;
+                    continue;
+                }
+                if (strcmp(layer->name.ptr, "pot") == 0 && !day2_active) {
+                    layer = layer->next;
+                    continue;
+                }
+            }
+            
             cute_tiled_object_t* object = layer->objects;
             while (object){
                 // If it's a named object, check if it's already picked up
                 bool skip = false;
                 if (object->name.ptr && strlen(object->name.ptr) > 0) {
+                    if (strstr(object->name.ptr, "brown_grass") != NULL) skip = true;
                     for (int i = 0; i < picked_up_count; i++) {
                         if (strcmp(picked_up_registry[i], object->name.ptr) == 0) {
                             skip = true;

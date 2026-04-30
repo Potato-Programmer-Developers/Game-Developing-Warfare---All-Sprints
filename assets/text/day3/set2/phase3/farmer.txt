@@ -1,0 +1,9 @@
+[IF] TIME < 15 SECONDS
+    [KARMA] ++
+    [RESPONSE] You should take over once I retire. Go home and get some rest.
+[ELSE IF] TIME < 40 SECONDS
+    [KARMA] +
+    [RESPONSE] You did alright, Go home and get some rest.
+[ELSE] TIME > 40 SECONDS
+    [KARMA] -
+    [RESPONSE] You took forever, kid, go home.

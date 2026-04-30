@@ -679,6 +679,18 @@
                  "width":92.3691,
                  "x":2785.81022026522,
                  "y":1250.77510207322
+                }, 
+                {
+                 "height":0,
+                 "id":54,
+                 "name":"SET4-PHASE2",
+                 "opacity":1,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":0,
+                 "x":1506.44374782306,
+                 "y":996.168582375479
                 }],
          "opacity":1,
          "type":"objectgroup",
@@ -687,7 +699,7 @@
          "y":0
         }],
  "nextlayerid":8,
- "nextobjectid":54,
+ "nextobjectid":55,
  "orientation":"orthogonal",
  "renderorder":"right-down",
  "tiledversion":"1.12.0",

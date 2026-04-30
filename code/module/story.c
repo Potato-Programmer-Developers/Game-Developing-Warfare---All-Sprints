@@ -16,6 +16,26 @@
  *                phone notifications only appear after the world has fully settled.)
  * - 2026-04-07: Resolved "Premature Quest Completion" BUG. (Goal: Prevent 
  *                `CONDITION_NARRATION_COMPLETE` from triggering before narration has started.)
+ * - 2026-04-10: Implemented "Conditional Narration Branching" for Day 2 SET4-PHASE2. (Goal: Support
+ *                `[IF]` conditional blocks within `narration.txt` that evaluate `GameContext` state
+ *                variables (e.g., `main_door_locked`, `fireplace_on`, `has_room_keys`) to dynamically
+ *                include or exclude narration lines, sound effects, and choice branches based on the
+ *                player's decisions in SET4-PHASE1. This enables unique narrative outcomes per playthrough.)
+ * - 2026-04-10: Implemented `[BREAK]` loop termination and `narration_loop_broken` flag. (Goal: Allow
+ *                the "go to bed" choice in SET4-PHASE1 to prematurely exit the narration choice loop,
+ *                setting all remaining un-selected choices to `false` and satisfying
+ *                `CONDITION_NARRATION_COMPLETE` without requiring all six choices to be completed.)
+ * - 2026-04-10: Implemented "Indentation-Aware Phone Tree Parser" for Day 2 SET4-PHASE3. (Goal: Replace
+ *                the flat linear phone message parser with a hierarchical, indentation-driven tree builder
+ *                that constructs branching conversation graphs from nested `[MESSAGE]`/`[CHOICE]` tags.
+ *                The parser uses leading whitespace to determine parent-child relationships and builds a
+ *                flat array of `PhoneMessage` nodes connected via `next_msg_idx` links, with a two-pass
+ *                post-processing algorithm that correctly resolves both branching child paths and linear
+ *                sequential siblings while preventing cross-branch contamination.)
+ * - 2026-04-10: Integrated `[PLAY]` sound tag processing into narration playback. (Goal: Trigger
+ *                ambient horror sound effects inline during narration by matching `[PLAY]` tag values
+ *                to named `Sound` handles in the `Audio` struct, enabling audio cues like door banging,
+ *                window scraping, and chimney rustling at precise narrative moments.)
  * 
  * Revision Details:
  * - Refactored `AdvanceStory` to support loading `dayX.txt` files dynamically via `LoadStoryDay`.
@@ -26,6 +46,29 @@
  * - Added persistence for `met` flags in the `StoryCondition` struct to prevent phase-skipping.
  * - Created a dedicated `phone_pending` flag to defer phone sequence triggers until map loads complete.
  * - Implemented directory parsing logic in `LoadStoryDay` to extract the current `day_folder` from file paths.
+ * - Introduced `LoadPhaseNarration` function that dynamically parses `narration.txt` with `[IF]` condition
+ *    evaluation against `GameContext` state fields, allowing `[ANY_MISSED]` and compound boolean logic
+ *    to gate sub-blocks of narration text, sound cues, and choices at load time.
+ * - Added `narration_loop_broken` flag handling in `HandleNarrationInput`: when a `[BREAK]` choice is
+ *    selected, all remaining loop choices are marked `completed = false` and the loop exits immediately
+ *    instead of continuing to display the choice menu.
+ * - Modified `EvaluateCondition` to treat `narration_loop_broken == true` as equivalent to
+ *    `CONDITION_NARRATION_COMPLETE` being met, bypassing the standard all-choices-completed check.
+ * - Rewrote the `in_phone` parsing block in `LoadStorySets` to use `msg_levels[]` (indent level per
+ *    message) and `msg_at_level[]` (latest message index at each indent level) for correct parent-child
+ *    assignment. `[CHOICE]` lines now look up their parent message via indent level instead of relying
+ *    on `current_pmsg`, which previously pointed to the most recently parsed message regardless of depth.
+ * - Implemented a two-pass post-processing algorithm after phone tree parsing:
+ *    Pass 1: Links each `PhoneChoice.next_msg_idx` to its correct child message by counting subtree
+ *    sizes of earlier sibling choices and computing candidate indices, with fallback to same-level
+ *    sibling search bounded by indent-level subtree boundaries.
+ *    Pass 2: Computes `PhoneMessage.next_auto_idx` for choiceless messages by finding the next
+ *    same-level sibling that is NOT a branch entry point (not targeted by any choice's `next_msg_idx`),
+ *    preventing terminal dead-end messages from incorrectly auto-advancing into unrelated branches.
+ * - Built a `is_choice_target[]` boolean lookup array during post-processing to distinguish between
+ *    true sequential siblings (auto-advance targets) and branch entry points (reached only via choice).
+ * - Expanded the phone data copy loop in `HandleNarrationInput` from 8 to 32 to match the increased
+ *    `StoryPhase.phone_messages` and `StorySystem.phone_active_messages` array capacities.
  * 
  * Authors: Andrew Zhuo
  */
@@ -130,10 +173,17 @@ void LoadStoryDay(StorySystem* story, const char* path) {
                         NarrationChoice* current_choice = NULL;
                         PhoneMessage* current_pmsg = NULL;
                         PhoneChoice* current_pchoice = NULL;
+                        int msg_levels[32] = {0};  // Track indent level per phone message
+                        int msg_at_level[10] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1}; // msg index at each indent level
                         
                         while (fgets(nline, sizeof(nline), nfile)) {
                             char* trimmed = trim(nline);
                             if (strlen(trimmed) == 0) continue;
+                            
+                            // Count leading spaces for indentation
+                            int indent = 0;
+                            { char* raw = nline; while (*raw == ' ') { indent++; raw++; } }
+                            int level = indent / 4;
                             
                             if (strstr(trimmed, "[PHONE]") && !in_loop) {
                                 char* sender = strstr(trimmed, "[PHONE]") + 7;
@@ -146,31 +196,49 @@ void LoadStoryDay(StorySystem* story, const char* path) {
                                 // Add a phone_start narration line marker
                                 if (phase_ptr->narration_count < 20) {
                                     phase_ptr->narration_lines[phase_ptr->narration_count].type = 3; // phone_start
-                                    strncpy(phase_ptr->narration_lines[phase_ptr->narration_count].text, "PHONE", 127);
+                                    strncpy(phase_ptr->narration_lines[phase_ptr->narration_count].text, "PHONE", 255);
                                     phase_ptr->narration_count++;
                                 }
                             } else if (in_phone && strstr(trimmed, "[MESSAGE]")) {
                                 char* msg = strstr(trimmed, "[MESSAGE]") + 9;
                                 while (*msg == ' ') msg++;
-                                if (phase_ptr->phone_message_count < 8) {
-                                    current_pmsg = &phase_ptr->phone_messages[phase_ptr->phone_message_count];
+                                if (phase_ptr->phone_message_count < 32) {
+                                    int new_idx = phase_ptr->phone_message_count;
+                                    current_pmsg = &phase_ptr->phone_messages[new_idx];
+                                    memset(current_pmsg, 0, sizeof(PhoneMessage));
                                     strncpy(current_pmsg->text, msg, 127);
                                     ReplaceNewlines(current_pmsg->text);
                                     current_pmsg->choice_count = 0;
                                     current_pchoice = NULL;
+                                    msg_levels[new_idx] = level;
+                                    if (level < 10) msg_at_level[level] = new_idx;
                                     phase_ptr->phone_message_count++;
                                 } else {
                                     current_pmsg = NULL;
                                 }
-                            } else if (in_phone && current_pmsg && strstr(trimmed, "[CHOICE]")) {
+                            } else if (in_phone && strstr(trimmed, "[CHOICE]")) {
+                                // Find the correct parent message for this choice based on indent level.
+                                // A choice at level L belongs to the message at level L (same level)
+                                // or at level L-1 (one level above), whichever was most recently defined.
+                                PhoneMessage* parent_msg = NULL;
+                                if (level < 10 && msg_at_level[level] >= 0) {
+                                    parent_msg = &phase_ptr->phone_messages[msg_at_level[level]];
+                                }
+                                if (!parent_msg && level > 0 && msg_at_level[level - 1] >= 0) {
+                                    parent_msg = &phase_ptr->phone_messages[msg_at_level[level - 1]];
+                                }
+                                if (!parent_msg) parent_msg = current_pmsg; // fallback
+                                
                                 char* choice_text = strstr(trimmed, "[CHOICE]") + 8;
                                 while (*choice_text == ' ') choice_text++;
-                                if (current_pmsg->choice_count < 4) {
-                                    current_pchoice = &current_pmsg->choices[current_pmsg->choice_count];
+                                if (parent_msg && parent_msg->choice_count < 4) {
+                                    current_pchoice = &parent_msg->choices[parent_msg->choice_count];
+                                    memset(current_pchoice, 0, sizeof(PhoneChoice));
                                     strncpy(current_pchoice->text, choice_text, 127);
                                     ReplaceNewlines(current_pchoice->text);
                                     current_pchoice->dream_count = 0;
-                                    current_pmsg->choice_count++;
+                                    current_pchoice->next_msg_idx = -1; // Default: end conversation
+                                    parent_msg->choice_count++;
                                 } else {
                                     current_pchoice = NULL;
                                 }
@@ -178,21 +246,25 @@ void LoadStoryDay(StorySystem* story, const char* path) {
                                 char* dtxt = strstr(trimmed, "[FULL TEXT]") + 11;
                                 while (*dtxt == ' ') dtxt++;
                                 if (current_pchoice->dream_count < 4) {
-                                    // Optionally parsing 'BLACK' prefix if needed, but for now just copy the text (it might include 'BLACK You fall asleep')
-                                    // Actually we can leave 'BLACK ' in or skip it. Let's just strncpy.
                                     strncpy(current_pchoice->dream_lines[current_pchoice->dream_count], dtxt, 127);
                                     ReplaceNewlines(current_pchoice->dream_lines[current_pchoice->dream_count]);
                                     current_pchoice->dream_count++;
                                 }
-                            } else if (in_phone && strstr(trimmed, "[SANITY]")) {
-                                // Ignore sanity tags
-                                continue;
+                            } else if (in_phone && strstr(trimmed, "[SANITY]") && current_pchoice) {
+                                if (strstr(trimmed, "++")) current_pchoice->sanity_change = 20;
+                                else if (strstr(trimmed, "--")) current_pchoice->sanity_change = -20;
+                                else if (strstr(trimmed, "+")) current_pchoice->sanity_change = 10;
+                                else if (strstr(trimmed, "-")) current_pchoice->sanity_change = -10;
+                            } else if (in_phone && strstr(trimmed, "[SCENE]") && current_pchoice) {
+                                char* scene_txt = strstr(trimmed, "[SCENE]") + 7;
+                                while (*scene_txt == ' ') scene_txt++;
+                                strncpy(current_pchoice->scene_trigger, scene_txt, 31);
                             } else if (strstr(trimmed, "[PLAY]")) {
                                 in_phone = false; // Any non-phone tag ends phone block
                                 if (phase_ptr->narration_count < 20) {
                                     char* sound_name = strstr(trimmed, "[PLAY]") + 6;
                                     while (*sound_name == ' ') sound_name++;
-                                    strncpy(phase_ptr->narration_lines[phase_ptr->narration_count].text, sound_name, 127);
+                                    strncpy(phase_ptr->narration_lines[phase_ptr->narration_count].text, sound_name, 255);
                                     phase_ptr->narration_lines[phase_ptr->narration_count].type = 1; // play_sound
                                     phase_ptr->narration_count++;
                                 }
@@ -200,7 +272,7 @@ void LoadStoryDay(StorySystem* story, const char* path) {
                                 in_phone = false;
                                 if (phase_ptr->narration_count < 20) {
                                     phase_ptr->narration_lines[phase_ptr->narration_count].type = 2; // loop_start
-                                    strncpy(phase_ptr->narration_lines[phase_ptr->narration_count].text, "LOOP", 127);
+                                    strncpy(phase_ptr->narration_lines[phase_ptr->narration_count].text, "LOOP", 255);
                                     phase_ptr->narration_count++;
                                 }
                                 in_loop = true;
@@ -209,6 +281,14 @@ void LoadStoryDay(StorySystem* story, const char* path) {
                                     current_choice = &phase_ptr->narration_choices[phase_ptr->narration_choice_count];
                                     char* label = strstr(trimmed, "[CHOICE]") + 8;
                                     while (*label == ' ') label++;
+                                    
+                                    current_choice->only_one = false;
+                                    if (strncmp(label, "[ONLY_ONE]", 10) == 0) {
+                                        current_choice->only_one = true;
+                                        label += 10;
+                                        while (*label == ' ') label++;
+                                    }
+                                    
                                     strncpy(current_choice->label, label, 63);
                                     current_choice->completed = false;
                                     phase_ptr->narration_choice_count++;
@@ -216,7 +296,8 @@ void LoadStoryDay(StorySystem* story, const char* path) {
                             } else if (in_loop && current_choice && strstr(trimmed, "[RESPONSE]")) {
                                 char* resp = strstr(trimmed, "[RESPONSE]") + 10;
                                 while (*resp == ' ') resp++;
-                                strncpy(current_choice->response, resp, 127);
+                                strncpy(current_choice->response, resp, 255);
+                                ReplaceNewlines(current_choice->response);
                             } else if (in_loop && current_choice && strstr(trimmed, "[STATE]")) {
                                 char* state_str = strstr(trimmed, "[STATE]") + 7;
                                 while (*state_str == ' ') state_str++;
@@ -225,17 +306,98 @@ void LoadStoryDay(StorySystem* story, const char* path) {
                                     strncpy(current_choice->state_key, key, 31);
                                     current_choice->state_value = (strcmp(val_str, "true") == 0);
                                 }
+                            } else if (in_loop && current_choice && strstr(trimmed, "[BREAK]")) {
+                                current_choice->is_break = true;
                             } else if (!in_phone) {
                                 // Plain text narration line (only if not inside phone block)
                                 in_phone = false;
                                 if (phase_ptr->narration_count < 20) {
-                                    strncpy(phase_ptr->narration_lines[phase_ptr->narration_count].text, trimmed, 127);
+                                    strncpy(phase_ptr->narration_lines[phase_ptr->narration_count].text, trimmed, 255);
+                                    ReplaceNewlines(phase_ptr->narration_lines[phase_ptr->narration_count].text);
                                     phase_ptr->narration_lines[phase_ptr->narration_count].type = 0; // text
                                     phase_ptr->narration_count++;
                                 }
                             }
                         }
                         fclose(nfile);
+                        
+                        // Post-processing: link choices and compute auto-advance for choiceless messages
+                        int mc = phase_ptr->phone_message_count;
+                        
+                        // Pass 1: Link choices to their next messages
+                        for (int mi = 0; mi < mc; mi++) {
+                            PhoneMessage* pm = &phase_ptr->phone_messages[mi];
+                            int pm_level = msg_levels[mi];
+                            
+                            for (int ci = 0; ci < pm->choice_count; ci++) {
+                                PhoneChoice* pc = &pm->choices[ci];
+                                if (pc->next_msg_idx != -1) continue; // Already linked
+                                if (pc->dream_count > 0 || pc->scene_trigger[0] != '\0') continue; // Terminal
+                                
+                                // Count messages in subtrees of earlier sibling choices
+                                int children_to_skip = 0;
+                                for (int prev_ci = 0; prev_ci < ci; prev_ci++) {
+                                    if (pm->choices[prev_ci].next_msg_idx != -1) {
+                                        int start = pm->choices[prev_ci].next_msg_idx;
+                                        int subtree_level = msg_levels[start];
+                                        children_to_skip++; // Count the root msg itself
+                                        for (int k = start + 1; k < mc; k++) {
+                                            if (msg_levels[k] <= subtree_level) break; // Sibling or shallower
+                                            children_to_skip++;
+                                        }
+                                    }
+                                }
+                                
+                                int candidate = mi + 1 + children_to_skip;
+                                
+                                if (candidate < mc && msg_levels[candidate] > pm_level) {
+                                    pc->next_msg_idx = candidate;
+                                } else {
+                                    // Look for the next sibling message at EXACTLY the same level.
+                                    // Stop if we hit a shallower level (different subtree).
+                                    for (int k = mi + 1; k < mc; k++) {
+                                        if (msg_levels[k] < pm_level) break;
+                                        if (msg_levels[k] == pm_level) {
+                                            pc->next_msg_idx = k;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // First, mark which messages are branch entry points
+                        // (i.e., directly targeted by a choice's next_msg_idx)
+                        bool is_choice_target[32] = {false};
+                        for (int mi = 0; mi < mc; mi++) {
+                            PhoneMessage* pm = &phase_ptr->phone_messages[mi];
+                            for (int ci = 0; ci < pm->choice_count; ci++) {
+                                int target = pm->choices[ci].next_msg_idx;
+                                if (target >= 0 && target < 32) {
+                                    is_choice_target[target] = true;
+                                }
+                            }
+                        }
+                        
+                        // Pass 2: Compute next_auto_idx for choiceless messages
+                        // Only auto-advance to the next same-level sibling if it
+                        // is NOT a branch entry point (would mean jumping branches).
+                        for (int mi = 0; mi < mc; mi++) {
+                            PhoneMessage* pm = &phase_ptr->phone_messages[mi];
+                            pm->next_auto_idx = -1; // Default: end conversation
+                            if (pm->choice_count == 0) {
+                                int pm_level = msg_levels[mi];
+                                for (int k = mi + 1; k < mc; k++) {
+                                    if (msg_levels[k] < pm_level) break;
+                                    if (msg_levels[k] == pm_level) {
+                                        if (!is_choice_target[k]) {
+                                            pm->next_auto_idx = k;
+                                        }
+                                        break;
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -296,9 +458,16 @@ void LoadStoryDay(StorySystem* story, const char* path) {
                             else if (strcmp(loc_str, "FOREST") == 0) cond->target_value = (float)STORY_LOC_FOREST;
                             else if (strcmp(loc_str, "APARTMENT") == 0) cond->target_value = (float)STORY_LOC_APARTMENT;
                         }
-                    } else if (strcmp(type_str, "COLLECT_OBJECTS") == 0){
+                    } else if (strcmp(type_str, "COLLECT_OBJECTS") == 0 || strcmp(type_str, "COLLECT_OBJECT") == 0){
                         cond->type = CONDITION_COLLECT_OBJECTS;
-                        sscanf(line, "[CONDITION] COLLECT_OBJECTS %s %f", cond->target_id, &cond->target_value);
+                        if (sscanf(line, "[CONDITION] COLLECT_OBJECTS %s %f", cond->target_id, &cond->target_value) != 2) {
+                            sscanf(line, "[CONDITION] COLLECT_OBJECT %s %f", cond->target_id, &cond->target_value);
+                        }
+                    } else if (strcmp(type_str, "COLLIDE_OBJECTS") == 0 || strncmp(type_str, "COLLIDE_OBJECT", 14) == 0){
+                        cond->type = CONDITION_COLLIDE_OBJECTS;
+                        if (sscanf(line, "[CONDITION] COLLIDE_OBJECTS %s %f", cond->target_id, &cond->target_value) != 2) {
+                            sscanf(line, "[CONDITION] COLLIDE_OBJECT %s %f", cond->target_id, &cond->target_value);
+                        }
                     } else if (strcmp(type_str, "NARRATION_COMPLETE") == 0){
                         cond->type = CONDITION_NARRATION_COMPLETE;
                     } else if (strcmp(type_str, "PHONE_COMPLETE") == 0){
@@ -362,6 +531,7 @@ static bool AllConditionsMet(StoryPhase* active, struct GameContext* game_contex
             // For INTERACT and COLLECT, we rely on them being marked '.met = true' by interaction.c
             case CONDITION_INTERACT_OBJECT:
             case CONDITION_COLLECT_OBJECTS:
+            case CONDITION_COLLIDE_OBJECTS:
                 if (!cond->met) return false;
                 break;
 
@@ -374,8 +544,10 @@ static bool AllConditionsMet(StoryPhase* active, struct GameContext* game_contex
                 // Check that narration is no longer active AND has actually started
                 if (game_context->story.narration_active) return false;
                 if (active->narration_count > 0 && !game_context->story.narration_has_started) return false;
-                for (int j = 0; j < active->narration_choice_count; j++) {
-                    if (!active->narration_choices[j].completed) return false;
+                if (!game_context->story.narration_loop_broken) {
+                    for (int j = 0; j < active->narration_choice_count; j++) {
+                        if (!active->narration_choices[j].completed) return false;
+                    }
                 }
                 cond->met = true;
             } break;
@@ -387,6 +559,17 @@ static bool AllConditionsMet(StoryPhase* active, struct GameContext* game_contex
             case CONDITION_DREAM_COMPLETE:
                 if (!cond->met) return false;
                 break;
+        }
+
+        // Quest completion is now handled explicitly via UpdateStoryConditions in interaction.c
+        // to support many-to-one condition-to-quest mappings.
+    }
+    
+    // Continuous quest marking for location/time-based conditions
+    for (int i = 0; i < active->condition_count && i < active->quest_count; i++) {
+        StoryCondition* cond = &active->end_conditions[i];
+        if (cond->met && (cond->type == CONDITION_ENTER_LOCATION || cond->type == CONDITION_TIME_PASS)) {
+            active->quests[i].completed = true;
         }
     }
     return true;
@@ -400,8 +583,25 @@ void UpdateStory(struct GameContext* game_context, float delta){
     // This prevents AdvanceStory from being called multiple times during the transition.
     if (game_scene && (game_scene->is_fading_out || game_scene->is_fading_in)) return;
 
+    if (story->scene_timer > 0) {
+        story->scene_timer -= delta;
+        if (story->scene_timer <= 0) {
+            story->scene_timer = 0;
+            story->current_scene[0] = '\0';
+            // Mark condition complete if needed?
+            // Actually, we force-advance the story upon scene completion
+            AdvanceStory(game_context);
+        }
+        return; // Do not update other story logic while scene is active
+    }
+
     StoryPhase* active = GetActivePhase(story);
     if (!active) return;
+
+    // Day 3 Mowing Timer
+    if (strcmp(active->name, "SET2-PHASE2") == 0) {
+        game_context->day3_mowing_timer += delta;
+    }
 
     // Increment timer regardless, AllConditionsMet will check it if needed
     story->phase_timer += delta;
@@ -474,12 +674,18 @@ void AdvanceStory(struct GameContext* game_context){
     story->current_phase_idx++;
     story->phase_timer = 0;
 
+    StoryPhase* next = GetActivePhase(story);
+    if (next && strcmp(next->name, "SET2-PHASE2") == 0) {
+        game_context->day3_mowing_timer = 0;
+    }
+
     // Reset narration for new phase
     story->narration_active = false;
     story->narration_current_line = 0;
     story->narration_in_loop = false;
     story->narration_showing_response = false;
     story->narration_has_started = false;
+    story->narration_loop_broken = false;
     story->phone_sequence_active = false;
     story->phone_message_timer = 0.0f;
 
@@ -518,28 +724,11 @@ void AdvanceStory(struct GameContext* game_context){
         }
     }
     
-    StoryPhase* next = GetActivePhase(story);
+    next = GetActivePhase(story);
     if (next) {
         // Reset met flags for the new phase
         for (int i = 0; i < next->condition_count; i++) {
             next->end_conditions[i].met = false;
-        }
-
-        // Automatic map transition if the new phase has a different location
-        if (next->location != STORY_LOC_NONE && (int)next->location != (int)game_context->location) {
-            if (game_context->game_scene) {
-                game_context->game_scene->is_fading_out = true;
-                game_context->game_scene->fade_alpha = 0.0f;
-                game_context->game_scene->fade_color = BLACK;
-                
-                if (next->location == STORY_LOC_EXTERIOR) {
-                    strncpy(game_context->game_scene->pending_map, "../assets/map/map_ext/MAINMAP.json", 127);
-                    strncpy(game_context->game_scene->pending_loc, "EXTERIOR", 31);
-                } else if (next->location == STORY_LOC_APARTMENT) {
-                    strncpy(game_context->game_scene->pending_map, "../assets/map/map_int/MAINMAP.json", 127);
-                    strncpy(game_context->game_scene->pending_loc, "APARTMENT", 31);
-                }
-            }
         }
     }
 
@@ -556,7 +745,9 @@ void AdvanceStory(struct GameContext* game_context){
     }
 
     story->phone_pending = wants_interactive_phone;
-    if (!wants_interactive_phone && next && next->narration_count > 0 && (next->interactable_count == 0 || next->force_narration)) {
+    if (next) LoadPhaseNarration(next, game_context);
+    
+    if (!wants_interactive_phone && next && (next->narration_count > 0 || strcmp(next->name, "SET4-PHASE2") == 0) && (next->interactable_count == 0 || next->force_narration)) {
         // Mark narration as pending (will be activated after fade/camera settle)
         story->narration_pending = true;
     }
@@ -575,10 +766,13 @@ StoryPhase* GetActivePhase(StorySystem* story){
 
 // Helper to apply [STATE] mutations to GameContext
 static void ApplyStateMutation(struct GameContext* ctx, const char* key, bool value) {
-    if (strcmp(key, "fireplace_on") == 0) ctx->fireplace_on = value;
-    else if (strcmp(key, "main_door_locked") == 0) ctx->main_door_locked = value;
-    else if (strcmp(key, "windows_locked") == 0) ctx->windows_locked = value;
-    else if (strcmp(key, "has_room_keys") == 0) ctx->has_room_keys = value;
+    if (strcmp(key, "fireplace_on") == 0) { ctx->fireplace_on = value; strcpy(ctx->last_narration_action, "FIREPLACE"); }
+    else if (strcmp(key, "main_door_locked") == 0) { ctx->main_door_locked = value; strcpy(ctx->last_narration_action, "DOOR"); }
+    else if (strcmp(key, "windows_locked") == 0) { ctx->windows_locked = value; strcpy(ctx->last_narration_action, "WINDOW"); }
+    else if (strcmp(key, "has_room_keys") == 0) { ctx->has_room_keys = value; strcpy(ctx->last_narration_action, "KEYS"); }
+    else if (strcmp(key, "look_outside") == 0) { ctx->look_outside = value; strcpy(ctx->last_narration_action, "OUTSIDE"); }
+    else if (strcmp(key, "bear_trap_inside") == 0) { ctx->bear_trap_inside = value; strcpy(ctx->last_narration_action, "TRAP_INSIDE"); }
+    else if (strcmp(key, "bear_trap_outside") == 0) { ctx->bear_trap_outside = value; strcpy(ctx->last_narration_action, "TRAP_OUTSIDE"); }
     else if (strcmp(key, "doors") == 0) ctx->doors = value;
 }
 
@@ -595,7 +789,7 @@ void HandleNarrationInput(struct GameContext* game_context, int* game_state, str
         active->narration_lines[story->narration_current_line].type == 3) {
         // Copy phase phone data into active playback
         strncpy(story->phone_active_sender, active->phone_sender, 63);
-        for (int i = 0; i < active->phone_message_count && i < 8; i++) {
+        for (int i = 0; i < active->phone_message_count && i < 32; i++) {
             story->phone_active_messages[i] = active->phone_messages[i];
         }
         story->phone_active_count = active->phone_message_count;
@@ -605,20 +799,49 @@ void HandleNarrationInput(struct GameContext* game_context, int* game_state, str
         return;
     }
 
+    // Typing effect logic
+    const char* current_text = NULL;
+    if (story->narration_showing_response) {
+        current_text = story->narration_response_text;
+    } else if (!story->narration_in_loop && story->narration_current_line < active->narration_count) {
+        if (active->narration_lines[story->narration_current_line].type == 0) {
+            current_text = active->narration_lines[story->narration_current_line].text;
+        }
+    }
+
+    int text_len = current_text ? strlen(current_text) : 0;
+    if (current_text && story->narration_typing_index < text_len) {
+        story->narration_typing_timer += GetFrameTime();
+        if (story->narration_typing_timer >= 0.03f) {
+            story->narration_typing_timer = 0.0f;
+            story->narration_typing_index++;
+            if (story->narration_typing_index >= text_len) {
+                if (game_audio && IsSoundPlaying(game_audio->typing_sound)) StopSound(game_audio->typing_sound);
+            } else if (game_audio && !IsSoundPlaying(game_audio->typing_sound)) {
+                PlaySound(game_audio->typing_sound);
+            }
+        }
+    }
+
     // If showing a choice response, SPACE returns to loop
     if (story->narration_showing_response) {
         if (IsKeyPressed(KEY_SPACE)) {
-            story->narration_showing_response = false;
-            // Check if all choices are done
-            bool all_done = true;
-            for (int i = 0; i < active->narration_choice_count; i++) {
-                if (!active->narration_choices[i].completed) { all_done = false; break; }
-            }
-            if (all_done) {
-                // Narration loop complete, end narration
-                story->narration_active = false;
-                story->narration_in_loop = false;
-                *game_state = GAMEPLAY;
+            if (story->narration_typing_index < text_len) {
+                story->narration_typing_index = text_len;
+                if (game_audio && IsSoundPlaying(game_audio->typing_sound)) StopSound(game_audio->typing_sound);
+            } else {
+                story->narration_showing_response = false;
+                // Check if all choices are done
+                bool all_done = true;
+                for (int i = 0; i < active->narration_choice_count; i++) {
+                    if (!active->narration_choices[i].completed) { all_done = false; break; }
+                }
+                if (all_done) {
+                    // Narration loop complete, end narration
+                    story->narration_active = false;
+                    story->narration_in_loop = false;
+                    *game_state = GAMEPLAY;
+                }
             }
         }
         return;
@@ -630,8 +853,28 @@ void HandleNarrationInput(struct GameContext* game_context, int* game_state, str
             if (IsKeyPressed(KEY_ONE + i)) {
                 if (!active->narration_choices[i].completed) {
                     active->narration_choices[i].completed = true;
-                    strncpy(story->narration_response_text, active->narration_choices[i].response, 127);
+                    
+                    // Handle [ONLY_ONE] exclusion
+                    if (active->narration_choices[i].only_one) {
+                        for (int j = 0; j < active->narration_choice_count; j++) {
+                            if (active->narration_choices[j].only_one && i != j) {
+                                active->narration_choices[j].completed = true;
+                            }
+                        }
+                    }
+                    
+                    if (active->narration_choices[i].is_break) {
+                        story->narration_loop_broken = true;
+                        story->narration_active = false;
+                        story->narration_in_loop = false;
+                        *game_state = GAMEPLAY;
+                        return;
+                    }
+                    
+                    strncpy(story->narration_response_text, active->narration_choices[i].response, 255);
                     story->narration_showing_response = true;
+                    story->narration_typing_index = 0;
+                    story->narration_typing_timer = 0.0f;
                     // Apply state mutation
                     if (active->narration_choices[i].state_key[0] != '\0') {
                         ApplyStateMutation(game_context, active->narration_choices[i].state_key, active->narration_choices[i].state_value);
@@ -645,17 +888,38 @@ void HandleNarrationInput(struct GameContext* game_context, int* game_state, str
 
     // Normal text line advancement
     if (IsKeyPressed(KEY_SPACE)) {
-        // Advance to next narration line
-        story->narration_current_line++;
+        if (story->narration_typing_index < text_len) {
+            story->narration_typing_index = text_len;
+            if (game_audio && IsSoundPlaying(game_audio->typing_sound)) StopSound(game_audio->typing_sound);
+        } else {
+            // Advance to next narration line
+            story->narration_current_line++;
+            story->narration_typing_index = 0;
+            story->narration_typing_timer = 0.0f;
         
         // Skip through any [PLAY] sound lines immediately
         while (story->narration_current_line < active->narration_count) {
             NarrationLine* line = &active->narration_lines[story->narration_current_line];
+            
+            // Apply sanity changes upon moving past or to the line
+            if (line->sanity_change != 0 && game_context->player) {
+                game_context->player->sanity += line->sanity_change;
+                line->sanity_change = 0; // Prevent applying multiple times
+            }
+
             if (line->type == 1) {
                 // Play sound
                 if (game_audio && strcmp(line->text, "FOOTSTEP") == 0) {
                     PlayStep(game_audio, game_context->location);
+                } else if (game_audio) {
+                    if (strcmp(line->text, "DOOR_BANGING") == 0) PlaySound(game_audio->door_banging);
+                    else if (strcmp(line->text, "WINDOW_SCRAPING") == 0) PlaySound(game_audio->window_scraping);
+                    else if (strcmp(line->text, "CHIMNEY_RUSTLING") == 0) PlaySound(game_audio->chimney_rustling);
+                    else TraceLog(LOG_INFO, "PLAYING NARRATION SOUND: %s", line->text);
                 }
+                story->narration_current_line++;
+            } else if (line->type == 4) {
+                // Invisible modifier line, just skip past it
                 story->narration_current_line++;
             } else {
                 break;
@@ -674,7 +938,6 @@ void HandleNarrationInput(struct GameContext* game_context, int* game_state, str
             }
         }
         
-        // Check if narration is exhausted
         if (story->narration_current_line >= active->narration_count) {
             if (active->narration_choice_count == 0) {
                 // No loop choices, just end narration
@@ -682,5 +945,179 @@ void HandleNarrationInput(struct GameContext* game_context, int* game_state, str
                 *game_state = GAMEPLAY;
             }
         }
+        }
     }
+}
+
+static bool EvaluateCondition(struct GameContext* ctx, const char* cond) {
+    if (strcmp(cond, "ANY_MISSED") == 0) return !ctx->main_door_locked || !ctx->windows_locked || !ctx->fireplace_on || !ctx->has_room_keys;
+    if (strcmp(cond, "DOOR_MISSED") == 0) return !ctx->main_door_locked;
+    if (strcmp(cond, "WINDOW_MISSED") == 0) return !ctx->windows_locked;
+    if (strcmp(cond, "NOT FIREPLACE_ON AND HAS_ROOM_KEYS") == 0) return !ctx->fireplace_on && ctx->has_room_keys;
+    if (strcmp(cond, "FIREPLACE_ON AND NOT HAS_ROOM_KEYS") == 0) return ctx->fireplace_on && !ctx->has_room_keys;
+    if (strcmp(cond, "NOT FIREPLACE_ON AND NOT HAS_ROOM_KEYS") == 0) return !ctx->fireplace_on && !ctx->has_room_keys;
+    if (strcmp(cond, "FIREPLACE_ON AND HAS_ROOM_KEYS") == 0) return ctx->fireplace_on && ctx->has_room_keys;
+    if (strcmp(cond, "DOOR_LAST") == 0) return strcmp(ctx->last_narration_action, "DOOR") == 0;
+    if (strcmp(cond, "WINDOW_LAST") == 0) return strcmp(ctx->last_narration_action, "WINDOW") == 0;
+    if (strcmp(cond, "FIREPLACE_LAST") == 0) return strcmp(ctx->last_narration_action, "FIREPLACE") == 0;
+    if (strcmp(cond, "KEYS_LAST") == 0) return strcmp(ctx->last_narration_action, "KEYS") == 0;
+
+    // Day 3 SET4-PHASE2 Simplified Conditions
+    if (strcmp(cond, "MAIN_DOOR_LOCKED AND WINDOWS_LOCKED AND FIREPLACE_ON AND BEAR_TRAP_OUTSIDE") == 0)
+        return ctx->main_door_locked && ctx->windows_locked && ctx->fireplace_on && ctx->bear_trap_outside;
+    if (strcmp(cond, "MAIN_DOOR_LOCKED AND WINDOWS_LOCKED AND FIREPLACE_ON AND BEAR_TRAP_INSIDE") == 0)
+        return ctx->main_door_locked && ctx->windows_locked && ctx->fireplace_on && ctx->bear_trap_inside;
+    if (strcmp(cond, "BEAR_TRAP_INSIDE") == 0) return ctx->bear_trap_inside;
+    if (strcmp(cond, "BEAR_TRAP_OUTSIDE") == 0) return ctx->bear_trap_outside;
+
+    return false;
+}
+
+void LoadPhaseNarration(StoryPhase* phase, struct GameContext* game_context) {
+    if (!phase || !game_context) return;
+    
+    // Only apply dynamic branching parsing for SET4-PHASE2
+    if (strcmp(phase->name, "SET4-PHASE2") != 0) return;
+    
+    StorySystem* story = &game_context->story;
+    char path[256];
+    snprintf(path, sizeof(path), "../assets/text/%s/set%d/phase%d/narration.txt", 
+             story->day_folder, story->current_set_idx + 1, story->current_phase_idx + 1);
+    
+    FILE* file = fopen(path, "r");
+    if (!file) return;
+
+    phase->narration_count = 0;
+    phase->phone_message_count = 0;
+    
+    char line[256];
+    
+    bool execute_branch[10];
+    bool branch_satisfied[10];
+    for (int i = 0; i < 10; i++) {
+        execute_branch[i] = true;
+        branch_satisfied[i] = false;
+    }
+    
+    while (fgets(line, sizeof(line), file)) {
+        if (line[0] == '\n' || line[0] == '\r') continue;
+        
+        int indent = 0;
+        while (line[indent] == ' ') indent++;
+        int level = indent / 4;
+        if (level > 9) level = 9;
+        
+        // Ensure we are active at all parent levels
+        bool parent_active = true;
+        for (int i = 0; i < level; i++) {
+            if (!execute_branch[i]) {
+                parent_active = false;
+                break;
+            }
+        }
+        
+        char trimmed[256];
+        char* start = line + indent;
+        char* end = start + strlen(start) - 1;
+        while (end > start && (*end == '\n' || *end == '\r')) { *end = '\0'; end--; }
+        strncpy(trimmed, start, 255);
+        
+        if (strncmp(trimmed, "[IF]", 4) == 0) {
+            char* cond_str = trimmed + 5;
+            while (*cond_str == ' ') cond_str++;
+            
+            if (!parent_active) {
+                execute_branch[level] = false;
+                branch_satisfied[level] = true;
+            } else {
+                bool cond_eval = EvaluateCondition(game_context, cond_str);
+                execute_branch[level] = cond_eval;
+                branch_satisfied[level] = cond_eval;
+            }
+            continue;
+        } else if (strncmp(trimmed, "[ELSE IF]", 9) == 0) {
+            char* cond_str = trimmed + 10;
+            while (*cond_str == ' ') cond_str++;
+            
+            if (!parent_active || branch_satisfied[level]) {
+                execute_branch[level] = false;
+            } else {
+                bool cond_eval = EvaluateCondition(game_context, cond_str);
+                execute_branch[level] = cond_eval;
+                if (cond_eval) branch_satisfied[level] = true;
+            }
+            continue;
+        } else if (strncmp(trimmed, "[ELSE]", 6) == 0) {
+            if (!parent_active || branch_satisfied[level]) {
+                execute_branch[level] = false;
+            } else {
+                execute_branch[level] = true;
+                branch_satisfied[level] = true;
+            }
+            continue;
+        }
+        
+        if (!parent_active) continue;
+
+        // Valid block: parsed narration lines (we only parse what's needed for phase2)
+        if (strncmp(trimmed, "[RESPONSE]", 10) == 0) {
+            char* resp = trimmed + 10;
+            while (*resp == ' ') resp++;
+            if (phase->narration_count < 40) {
+                strncpy(phase->narration_lines[phase->narration_count].text, resp, 255);
+                ReplaceNewlines(phase->narration_lines[phase->narration_count].text);
+                phase->narration_lines[phase->narration_count].type = 0; // text
+                phase->narration_lines[phase->narration_count].sanity_change = 0;
+                phase->narration_count++;
+            }
+        } else if (strncmp(trimmed, "[PLAY]", 6) == 0) {
+            char* sound = trimmed + 6;
+            while (*sound == ' ') sound++;
+            if (phase->narration_count < 40) {
+                strncpy(phase->narration_lines[phase->narration_count].text, sound, 255);
+                phase->narration_lines[phase->narration_count].type = 1; // play_sound
+                phase->narration_lines[phase->narration_count].sanity_change = 0;
+                phase->narration_count++;
+            }
+        } else if (strncmp(trimmed, "[SANITY]", 8) == 0) {
+            int points = 0;
+            if (strstr(trimmed, "--")) points = -20;
+            else if (strstr(trimmed, "++")) points = 20;
+            else if (strstr(trimmed, "-")) points = -10;
+            else if (strstr(trimmed, "+")) points = 10;
+            
+            if (phase->narration_count > 0 && phase->narration_lines[phase->narration_count-1].type == 0) {
+                phase->narration_lines[phase->narration_count-1].sanity_change += points;
+            } else {
+                // Prepend to next line
+                if (phase->narration_count < 40) {
+                    phase->narration_lines[phase->narration_count].text[0] = '\0';
+                    phase->narration_lines[phase->narration_count].type = 4; // invisible modifiers
+                    phase->narration_lines[phase->narration_count].sanity_change = points;
+                    phase->narration_count++;
+                }
+            }
+        } else if (strncmp(trimmed, "[PHONE]", 7) == 0) {
+            char* sender = trimmed + 7;
+            while (*sender == ' ') sender++;
+            strncpy(phase->phone_sender, sender, 63);
+            if (phase->narration_count < 40) {
+                strncpy(phase->narration_lines[phase->narration_count].text, "PHONE_START", 255);
+                phase->narration_lines[phase->narration_count].type = 3; // phone_start
+                phase->narration_lines[phase->narration_count].sanity_change = 0;
+                phase->narration_count++;
+            }
+        } else if (strncmp(trimmed, "[MESSAGE]", 9) == 0) {
+            char* msg = trimmed + 9;
+            while (*msg == ' ') msg++;
+            if (phase->phone_message_count < 32) {
+                strncpy(phase->phone_messages[phase->phone_message_count].text, msg, 127);
+                ReplaceNewlines(phase->phone_messages[phase->phone_message_count].text);
+                phase->phone_messages[phase->phone_message_count].choice_count = 0;
+                phase->phone_message_count++;
+            }
+        }
+    }
+    
+    fclose(file);
 }

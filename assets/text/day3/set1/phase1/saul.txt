@@ -1,0 +1,38 @@
+[IF] SAUL_TALKED == FALSE
+    [CHOICE1] Hello!
+        [RESPONSE] ...
+    [CHOICE2] Able...
+        [RESPONSE] ...
+        [SANITY] -
+[ELSE]
+    [CHOICE1] Saul. We need to talk.
+        [RESPONSE] I know, that weird thing appeared again.
+    [CHOICE2] IT’S COMING AFTER ME.
+        [SANITY] -
+        [RESPONSE] Huh??
+
+    [IF] SANITY > 50
+        [CHOICE1] It was aggressive.
+            [RESPONSE] I saw it. Full view this time. 
+        [CHOICE2] Sorry, I lost my composure.
+            [RESPONSE] Dont worry about that, I saw it. Full view this time.
+    [ELSE]
+        [CHOICE1] It won't let me forget.
+            [SANITY] -
+            [RESPONSE] Forget what??
+        [CHOICE2] I still remember.
+            [SANITY] -
+            [RESPONSE] Do you need your meds dude?
+
+    [IF] SANITY > 50
+        [CHOICE1] Forget about seeing it! I need to do something about it!
+        [CHOICE2] It's gonna follow me. It won't let me leave.
+            [SANITY] -
+            [RESPONSE] Calm down...
+    [ELSE]
+        [CHOICE1] Nothing.. Forget I said anything.
+            [SANITY] +
+            [RESPONSE] You should come hide in the forest tomorrow.
+        [CHOICE2] It won't let me forget.. You won't let me forget..
+            [SANITY] -
+            [RESPONSE] I'll let farmer Johnny know about this.

@@ -1,9 +1,9 @@
 [CHOICE1] You look just like him.
     [RESPONSE] Huh? What a weirdo.
-    [KARMA] -
+    [SANITY] -
 [CHOICE2] ABLE??
     [RESPONSE] Uh... I don't think I know you.
-    [KARMA] -
+    [SANITY] -
 [CHOICE3] ...
     [RESPONSE] Uhm? Do you want anything?
-    [KARMA] -
+    [SANITY] -

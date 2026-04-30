@@ -57,7 +57,7 @@ int main(void){
     InitGame(&game_settings);
 
     Data game_data = LoadData(&game_settings);
-    Map game_map = InitMap("../assets/map/map_apart/APARTMENT_MAP.json");
+    Map game_map = InitMap("../assets/map/map_apart/APARTMENT_MAP.json", NULL);
     Character player = InitCharacter(&game_settings, &game_data, &game_map);
     Audio game_audio = InitAudio(&game_settings);
     Scene game_scene = InitScene(&game_settings);
@@ -114,7 +114,7 @@ void RunGame(Character *player, Audio *game_audio, Settings *game_settings,
         UpdateAudio(game_audio);
 
         // Interaction system: calculate proximity-based hitbox (expanded and centered)
-        Rectangle playerHitbox = {player->position.x - 40, player->position.y - 40, player->size.x + 80, player->size.y + 80};
+        Rectangle playerHitbox = {player->position.x - 40, player->position.y - 30, player->size.x + 80, player->size.y + 60};
         CheckInteractable(game_context->worldNPCs, game_context->worldItems, game_context->worldDoors, 
             game_context->npcCount, game_context->itemCount, game_context->doorCount,
             playerHitbox, &objectToInteractWith);
@@ -124,12 +124,12 @@ void RunGame(Character *player, Audio *game_audio, Settings *game_settings,
                 
         // Input Handling: Interaction Trigger (E)
         if (IsKeyPressed(KEY_E) && *game_state == GAMEPLAY) {
-            InteractWithObject(objectToInteractWith, current_dialogue, game_state, player, game_map, game_context);
+            InteractWithObject(objectToInteractWith, current_dialogue, game_state, player, game_map, game_context, game_audio);
         }
                 
         // Input Handling: Dialogue Progression and Choice Selection
         if (*game_state == DIALOGUE_CUTSCENE) {
-            InteractWithNPC(NULL, current_dialogue, game_state, game_context);
+            InteractWithNPC(NULL, current_dialogue, game_state, game_context, game_audio);
         }
                 
         // Input Handling: Narration Progression and Choice Selection
@@ -154,6 +154,8 @@ void RunGame(Character *player, Audio *game_audio, Settings *game_settings,
                 game_context->story.narration_current_line = 0;
                 game_context->story.narration_in_loop = false;
                 game_context->story.narration_showing_response = false;
+                game_context->story.narration_typing_index = 0;
+                game_context->story.narration_typing_timer = 0.0f;
             }
         }
                 
