@@ -1,0 +1,57 @@
+Farmer Johnny: I’ve been waiting for you kid.
+Farmer Johnny: I saw what happened last night..
+Farmer Johnny: Listen.. I don’t know why he’s looking for you
+Farmer Johnny: But I need to know now.
+Farmer Johnny: There’s a monster among us
+Farmer Johnny: But there could be two.
+
+[CHOICE1] Tell him the truth.
+    [SANITY] +
+    Kane: I killed my brother.
+    Kane: I.. did it intentionally.
+    Kane: I don’t exactly remember what happened.
+    Kane: I try to remember.
+    Kane: But all I can clearly remember was my hands on his neck, and his blood all over my shirt.
+    Kane: It was a mistake, I was enraged.
+    Kane: But the courts ruled me killing him as an accident
+    Kane: Doctors diagnosed me with mental illnesses
+    Kane: But I knew that within my heart, that I took his life with my own choice.
+    Kane: I wish for nothing but to turn back time and stop myself from doing such cruelty to him.
+    Kane: But time stops for nobody, and rewinds for dreamers.
+    Kane: It’s my fault.. He’s chasing me to punish me for my sins.
+    Kane: I think it might not even be right for me to run for my life
+    Kane: I don’t deserve to live
+    Kane: ….
+    Kane: But still..
+    Kane: I want to live..
+    Kane: Whether it is to repent, or to be punished by life.
+    Kane: I will live.
+    [IF] KARMA < 50
+        [TRIGGER_ENDING] farmer_ending1.txt
+    [ELSE]
+        [TRIGGER_ENDING] farmer_ending3.txt
+[CHOICE2] Lie to him.
+    [SANITY] -
+    Kane: I killed my brother.
+    Kane: I don’t know how it happened. It was an accident.
+    Kane: I don’t exactly remember what happened.
+    Kane: I’ve been trying to forget.
+    Kane: But all I can clearly remember was seeing his cold body on the floor.
+    Kane: It was a mistake, an accident.
+    Kane: But the courts accused me of killing him.
+    Kane: The case was closed because of the lack of evidence
+    Kane: Despite that, I still feel guilty.
+    Kane: I wish for nothing but to turn back time and stop these things from happening.
+    Kane: But time stops for nobody, and rewinds for dreamers.
+    Kane: It’s my fault.. He’s chasing me to punish me for my sins.
+    Kane: I think it might not even be right for me to run for my life
+    Kane: I don’t deserve to live
+    Kane: ...
+    Kane: But still..
+    Kane: I want to live..
+    Kane: To forget.
+    Kane: I will live.
+    [IF] SANITY > 50
+        [TRIGGER_ENDING] farmer_ending2.txt
+    [ELSE]
+        [TRIGGER_ENDING] farmer_ending4.txt

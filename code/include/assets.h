@@ -22,6 +22,7 @@
  */
 void LoadPhaseAssets(StoryPhase* phase, GameContext* context);
 
+void PrintAssetsKarma();
 /**
  * @brief Unloads assets for a specific location.
  * 
@@ -36,6 +37,14 @@ void UnloadLocationAssets(GameContext* context);
  * @param delta The amount to change karma by.
  */
 void UpdateAssetKarma(const char* id, int delta);
+
+/**
+ * @brief Gets the persistent karma for an asset in the registry.
+ * 
+ * @param id The unique ID of the asset.
+ * @return The current karma value, or 0 if not found.
+ */
+int GetAssetKarma(const char* id);
 
 /**
  * @brief Populates an array with all persistent karma values from the registry.

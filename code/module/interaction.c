@@ -417,7 +417,21 @@ void InteractWithNPC(NPC *npc, Dialogue* game_dialogue, GameState* game_state, s
                         } else{
                             if (current_node->triggers_phone) game_context->story.narration_pending = true;
                             UpdateStoryConditions(game_context, game_dialogue, current_interactable_id);
-                            *game_state = GAMEPLAY;
+                            
+                            if (current_node->trigger_ending_file[0] != '\0') {
+                                char ending_path[128];
+                                // We know it's day4, but let's build the path. Wait, endings could be in the day root or set/phase root.
+                                // In farmer.txt, it triggers "farmer_ending1.txt". The file is in assets/text/day4/set3/phase1/
+                                sprintf(ending_path, "../assets/text/%s/set%d/phase%d/%s", 
+                                    game_context->story.day_folder, 
+                                    game_context->story.current_set_idx + 1, 
+                                    game_context->story.current_phase_idx + 1, 
+                                    current_node->trigger_ending_file);
+                                TriggerEnding(&game_context->story, ending_path);
+                                *game_state = ENDING_CUTSCENE;
+                            } else {
+                                *game_state = GAMEPLAY;
+                            }
                         }
                     } else{ 
                         game_dialogue->current_line = game_dialogue->line_count - 1; 
@@ -447,6 +461,20 @@ void InteractWithItem(Item *item, Dialogue *game_dialogue, GameState *game_state
     }
     // If the item is a pickup item
     if (item->is_pickup){
+        if (strcmp(item->base.interactable_id, "forest_road") == 0) {
+            bool has_saul_quest = false;
+            StoryPhase* active_phase = GetActivePhase(&game_context->story);
+            if (active_phase) {
+                for (int i = 0; i < active_phase->quest_count; i++) {
+                    if (strstr(active_phase->quests[i].description, "Go to the forest and find Saul")) {
+                        has_saul_quest = true;
+                        break;
+                    }
+                }
+            }
+            if (!has_saul_quest) return;
+        }
+
         if (strcmp(item->base.interactable_id, "lawnmower") == 0) {
             StoryPhase* active = GetActivePhase(&game_context->story);
             if (!active || strcmp(active->name, "SET2-PHASE2") != 0) return;

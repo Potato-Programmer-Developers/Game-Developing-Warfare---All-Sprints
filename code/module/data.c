@@ -202,8 +202,10 @@ void ResetGameData(struct GameContext* context, Vector2 default_spawn){
     context->story.current_phase_idx = 0;
     
     // Reset Karma
-    int zero_karma[64] = {0};
-    SetRegistryKarma(zero_karma, 64);
+    int initial_karma[64] = {0};
+    initial_karma[14] = 49;
+    initial_karma[15] = 49;
+    SetRegistryKarma(initial_karma, 64);
 }
 
 void HandleGameData(struct GameContext* context, Map* game_map, Settings* game_settings){

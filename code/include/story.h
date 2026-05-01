@@ -235,6 +235,14 @@ void AdvanceStory(struct GameContext* game_context);
 StoryPhase* GetActivePhase(StorySystem* story);
 
 /**
+ * @brief Triggers an ending sequence from a file.
+ *
+ * @param story Pointer to the StorySystem.
+ * @param ending_file Name of the ending file to load.
+ */
+void TriggerEnding(StorySystem* story, const char* ending_file);
+
+/**
  * @brief Handles player input during NARRATION_CUTSCENE state.
  *
  * @param game_context Pointer to the GameContext.

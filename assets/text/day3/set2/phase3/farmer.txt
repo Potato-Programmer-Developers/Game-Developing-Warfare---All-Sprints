@@ -1,4 +1,4 @@
-[IF] TIME < 15 SECONDS
+[IF] TIME < 20 SECONDS
     [KARMA] ++
     [RESPONSE] You should take over once I retire. Go home and get some rest.
 [ELSE IF] TIME < 40 SECONDS

@@ -55,8 +55,8 @@ static AssetMetadata ASSET_REGISTRY[] = {
     {"potato", "", {1200, 1500, 64, 64}, INTERACTABLE_TYPE_ITEM, "../assets/text/day1/phase2/potato.txt", 0},
     {"big tree", "", {1500, 1000, 192, 256}, INTERACTABLE_TYPE_ITEM, "../assets/text/day1/phase2/big tree.txt", 0},
     {"tree", "", {1000, 1100, 96, 128}, INTERACTABLE_TYPE_ITEM, "../assets/text/day1/phase2/tree.txt", 0},
-    {"farmer", "../assets/images/character/jhonny/jhonny_idle.png", {1600, 1200, 64, 96}, INTERACTABLE_TYPE_NPC, "", 0},
-    {"saul", "../assets/images/character/saul/saul.png", {0, 0, 0, 0}, INTERACTABLE_TYPE_NPC, "", 0},
+    {"farmer", "../assets/images/character/jhonny/jhonny_idle.png", {1600, 1200, 64, 96}, INTERACTABLE_TYPE_NPC, "", 49},
+    {"saul", "../assets/images/character/saul/saul.png", {0, 0, 0, 0}, INTERACTABLE_TYPE_NPC, "", 49},
     {"house", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
     {"house_door", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_DOOR, "", 0},
     {"farm_road", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_DOOR, "../assets/text/day1/set4/phase1/farm_road.txt", 0},
@@ -146,6 +146,12 @@ static AssetMetadata* FindInRegistry(const char* id){
     return NULL;
 }
 
+void PrintAssetsKarma(){
+    // Print the karma of the asset
+    TraceLog(LOG_WARNING,"%s: %d\n", ASSET_REGISTRY[15].id, ASSET_REGISTRY[15].karma);
+    TraceLog(LOG_WARNING,"%s: %d\n", ASSET_REGISTRY[14].id, ASSET_REGISTRY[14].karma);
+}
+
 void UpdateAssetKarma(const char* id, int delta){
     // Update the karma of the asset
     AssetMetadata* meta = FindInRegistry(id);
@@ -154,6 +160,14 @@ void UpdateAssetKarma(const char* id, int delta){
         if (meta->karma > 100) meta->karma = 100;
         if (meta->karma < -100) meta->karma = -100; 
     }
+}
+
+int GetAssetKarma(const char* id) {
+    AssetMetadata* meta = FindInRegistry(id);
+    if (meta) {
+        return meta->karma;
+    }
+    return 0;
 }
 
 int GetRegistryKarma(int* dest, int max_size){

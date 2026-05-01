@@ -145,8 +145,30 @@ void DrawGame(Scene *game_scene, Settings *game_settings, Interactive *game_inte
             const char *full_line = game_dialogue->lines[game_dialogue->current_line];
             int line_len = strlen(full_line);
             int start_x = GetScreenWidth() / 2 - MeasureText(full_line, 20) / 2;
-            const char *typed_line = TextSubtext(full_line, 0, game_dialogue->typing_index);
-            DrawText(typed_line, start_x, box_y + 30, 20, WHITE);
+            const char* colon = strchr(full_line, ':');
+            if (colon) {
+                int speaker_len = (int)(colon - full_line);
+                char speaker[64] = {0};
+                strncpy(speaker, full_line, speaker_len < 63 ? speaker_len : 63);
+                const char* dialogue_text = colon + 1;
+                while (*dialogue_text == ' ') dialogue_text++;
+                
+                int typed_chars = game_dialogue->typing_index;
+                if (typed_chars <= speaker_len + 2) {
+                    const char* typed = TextSubtext(full_line, 0, typed_chars);
+                    DrawText(typed, start_x, box_y + 30, 20, GOLD);
+                } else {
+                    char temp_speaker[64];
+                    sprintf(temp_speaker, "%s: ", speaker);
+                    DrawText(temp_speaker, start_x, box_y + 30, 20, GOLD);
+                    int colon_w = MeasureText(temp_speaker, 20);
+                    const char* typed_dialogue = TextSubtext(dialogue_text, 0, typed_chars - (speaker_len + 2));
+                    DrawText(typed_dialogue, start_x + colon_w, box_y + 30, 20, WHITE);
+                }
+            } else {
+                const char *typed_line = TextSubtext(full_line, 0, game_dialogue->typing_index);
+                DrawText(typed_line, start_x, box_y + 30, 20, WHITE);
+            }
 
             // Draw choices if we're at the end of the current node's text and typing is complete
             if (game_dialogue->typing_index >= line_len) {

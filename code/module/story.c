@@ -707,6 +707,22 @@ void AdvanceStory(struct GameContext* game_context){
     if (story->current_set_idx < 0 || story->current_set_idx >= MAX_SETS_PER_DAY) return;
     
     StoryPhase* old = GetActivePhase(story);
+
+    // Custom Branching for Day 4 SET1-PHASE1
+    if (old && strcmp(story->day_folder, "day4") == 0 && strcmp(old->name, "SET1-PHASE1") == 0) {
+        if (game_context->location == FOREST) {
+            story->current_set_idx = 1; // SET2
+            story->current_phase_idx = 0;
+            story->phase_timer = 0;
+            return;
+        } else if (game_context->location == FARM) {
+            story->current_set_idx = 2; // SET3
+            story->current_phase_idx = 0;
+            story->phase_timer = 0;
+            return;
+        }
+    }
+
     story->current_phase_idx++;
     story->phase_timer = 0;
 
@@ -1222,6 +1238,39 @@ static void LoadEndingSequence(StorySystem* story, StoryPhase* phase) {
     story->ending_typing_index = 0;
     
     TraceLog(LOG_INFO, "ENDING: Loaded %d lines from %s", story->ending_line_count, phase->ending_file);
+}
+
+void TriggerEnding(StorySystem* story, const char* ending_file) {
+    if (!story || !ending_file || strlen(ending_file) == 0) return;
+    
+    FILE* file = fopen(ending_file, "r");
+    if (!file) {
+        TraceLog(LOG_WARNING, "ENDING: Could not open ending file: %s", ending_file);
+        return;
+    }
+    
+    story->ending_line_count = 0;
+    char line[256];
+    while (fgets(line, sizeof(line), file) && story->ending_line_count < 80) {
+        // Trim trailing newlines/carriage returns
+        char* end = line + strlen(line) - 1;
+        while (end >= line && (*end == '\n' || *end == '\r')) { *end = '\0'; end--; }
+        
+        // Skip empty lines
+        if (strlen(line) == 0) continue;
+        
+        strncpy(story->ending_lines[story->ending_line_count], line, 255);
+        story->ending_line_count++;
+    }
+    fclose(file);
+    
+    story->ending_active = true;
+    story->ending_show_credits = false;
+    story->ending_current_line = 0;
+    story->ending_typing_timer = 0.0f;
+    story->ending_typing_index = 0;
+    
+    TraceLog(LOG_INFO, "ENDING: Triggered %d lines from %s", story->ending_line_count, ending_file);
 }
 
 void HandleEndingInput(struct GameContext* game_context, int* game_state, struct Audio* game_audio) {

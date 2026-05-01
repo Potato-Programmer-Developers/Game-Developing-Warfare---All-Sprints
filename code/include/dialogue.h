@@ -48,8 +48,8 @@ typedef struct {
  * @brief A single node in a conversation tree.
  */
 typedef struct {
-    char responses[10][MAX_LINE_LENGTH]; // NPC can say one of these (or all if conversation)
-    bool response_once[10];              // If true, response plays only once across sessions
+    char responses[32][MAX_LINE_LENGTH]; // NPC can say one of these (or all if conversation)
+    bool response_once[32];              // If true, response plays only once across sessions
     int response_count;                  // Number of available responses
     bool is_conversation;                // If true, play responses sequentially
     char choices[4][64];                 // Player can say...
@@ -64,6 +64,7 @@ typedef struct {
     char target_map[128];                // Optional fade target
     char target_loc[32];                 // Optional fade location
     bool triggers_phone;                 // If true, activates the phase's phone notification
+    char trigger_ending_file[64];        // If set, triggers ending cutscene with this file
 } DialogueNode;
 
 
