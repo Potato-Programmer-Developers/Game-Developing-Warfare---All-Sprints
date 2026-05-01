@@ -76,6 +76,7 @@
 #include "story.h"
 #include "scene.h"
 #include "game_context.h"
+#include "data.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -84,6 +85,9 @@
 #include "data.h"
 #include "audio.h"
 #include "raylib.h"
+
+// Forward declarations
+static void LoadEndingSequence(StorySystem* story, StoryPhase* phase);
 
 /**
  * @brief Trims leading and trailing whitespace from a string.
@@ -543,6 +547,7 @@ static bool AllConditionsMet(StoryPhase* active, struct GameContext* game_contex
             case CONDITION_NARRATION_COMPLETE: {
                 // Check that narration is no longer active AND has actually started
                 if (game_context->story.narration_active) return false;
+                if (game_context->story.ending_active) return false;  // Ending blocks advancement
                 if (active->narration_count > 0 && !game_context->story.narration_has_started) return false;
                 if (!game_context->story.narration_loop_broken) {
                     for (int j = 0; j < active->narration_choice_count; j++) {
@@ -620,6 +625,11 @@ void UpdateStory(struct GameContext* game_context, float delta){
                 if (story->narration_current_line >= active->narration_count) {
                     if (active->narration_choice_count == 0) {
                         story->narration_active = false;
+                        TraceLog(LOG_INFO, "ENDING CHECK (UpdateStory): has_ending=%d, ending_file=%s, narr_count=%d",
+                                 active->has_ending, active->ending_file, active->narration_count);
+                        if (active->has_ending) {
+                            LoadEndingSequence(story, active);
+                        }
                     }
                 }
             }
@@ -940,9 +950,15 @@ void HandleNarrationInput(struct GameContext* game_context, int* game_state, str
         
         if (story->narration_current_line >= active->narration_count) {
             if (active->narration_choice_count == 0) {
-                // No loop choices, just end narration
+                // No loop choices, end narration
                 story->narration_active = false;
-                *game_state = GAMEPLAY;
+                if (active->has_ending) {
+                    // Trigger ending sequence
+                    LoadEndingSequence(story, active);
+                    *game_state = ENDING_CUTSCENE;
+                } else {
+                    *game_state = GAMEPLAY;
+                }
             }
         }
         }
@@ -970,6 +986,17 @@ static bool EvaluateCondition(struct GameContext* ctx, const char* cond) {
     if (strcmp(cond, "BEAR_TRAP_INSIDE") == 0) return ctx->bear_trap_inside;
     if (strcmp(cond, "BEAR_TRAP_OUTSIDE") == 0) return ctx->bear_trap_outside;
 
+    // Sanity comparison: "SANITY > 50", "SANITY < 101", etc.
+    if (strncmp(cond, "SANITY", 6) == 0) {
+        char op;
+        int threshold;
+        if (sscanf(cond, "SANITY %c %d", &op, &threshold) == 2 && ctx->player) {
+            if (op == '>') return ctx->player->sanity > threshold;
+            if (op == '<') return ctx->player->sanity < threshold;
+        }
+        return false;
+    }
+
     return false;
 }
 
@@ -989,6 +1016,8 @@ void LoadPhaseNarration(StoryPhase* phase, struct GameContext* game_context) {
 
     phase->narration_count = 0;
     phase->phone_message_count = 0;
+    phase->has_ending = false;
+    phase->ending_file[0] = '\0';
     
     char line[256];
     
@@ -1116,8 +1145,111 @@ void LoadPhaseNarration(StoryPhase* phase, struct GameContext* game_context) {
                 phase->phone_messages[phase->phone_message_count].choice_count = 0;
                 phase->phone_message_count++;
             }
+        } else if (strncmp(trimmed, "[TRIGGER_ENDING]", 16) == 0) {
+            char* filename = trimmed + 16;
+            while (*filename == ' ') filename++;
+            strncpy(phase->ending_file, filename, 127);
+            phase->has_ending = true;
+            TraceLog(LOG_INFO, "PARSER: [TRIGGER_ENDING] parsed -> %s (has_ending=true)", filename);
         }
     }
     
+    TraceLog(LOG_INFO, "PARSER DONE: narr_count=%d, phone_count=%d, has_ending=%d, ending_file=%s, sanity=%.0f",
+             phase->narration_count, phase->phone_message_count, phase->has_ending, phase->ending_file,
+             game_context->player ? game_context->player->sanity : -1);
     fclose(file);
+}
+
+static void LoadEndingSequence(StorySystem* story, StoryPhase* phase) {
+    if (!story || !phase || !phase->has_ending) return;
+    
+    char path[256];
+    snprintf(path, sizeof(path), "../assets/text/%s/set%d/phase%d/%s",
+             story->day_folder, story->current_set_idx + 1, story->current_phase_idx + 1,
+             phase->ending_file);
+    
+    FILE* file = fopen(path, "r");
+    if (!file) {
+        TraceLog(LOG_WARNING, "ENDING: Could not open ending file: %s", path);
+        return;
+    }
+    
+    story->ending_line_count = 0;
+    char line[256];
+    while (fgets(line, sizeof(line), file) && story->ending_line_count < 80) {
+        // Trim trailing newlines/carriage returns
+        char* end = line + strlen(line) - 1;
+        while (end >= line && (*end == '\n' || *end == '\r')) { *end = '\0'; end--; }
+        
+        // Skip empty lines
+        if (strlen(line) == 0) continue;
+        
+        strncpy(story->ending_lines[story->ending_line_count], line, 255);
+        story->ending_line_count++;
+    }
+    fclose(file);
+    
+    story->ending_active = true;
+    story->ending_show_credits = false;
+    story->ending_current_line = 0;
+    story->ending_typing_timer = 0.0f;
+    story->ending_typing_index = 0;
+    
+    TraceLog(LOG_INFO, "ENDING: Loaded %d lines from %s", story->ending_line_count, phase->ending_file);
+}
+
+void HandleEndingInput(struct GameContext* game_context, int* game_state, struct Audio* game_audio) {
+    StorySystem* story = &game_context->story;
+    
+    if (!story->ending_active) return;
+    
+    // Credits screen — SPACE returns to main menu
+    if (story->ending_show_credits) {
+        if (IsKeyPressed(KEY_SPACE)) {
+            story->ending_active = false;
+            story->ending_show_credits = false;
+            DeleteSaveData();
+            *game_state = MAINMENU;
+        }
+        return;
+    }
+    
+    // Typing effect logic
+    const char* current_text = NULL;
+    if (story->ending_current_line < story->ending_line_count) {
+        current_text = story->ending_lines[story->ending_current_line];
+    }
+    
+    int text_len = current_text ? strlen(current_text) : 0;
+    if (current_text && story->ending_typing_index < text_len) {
+        story->ending_typing_timer += GetFrameTime();
+        if (story->ending_typing_timer >= 0.03f) {
+            story->ending_typing_timer = 0.0f;
+            story->ending_typing_index++;
+            if (story->ending_typing_index >= text_len) {
+                if (game_audio && IsSoundPlaying(game_audio->typing_sound)) StopSound(game_audio->typing_sound);
+            } else if (game_audio && !IsSoundPlaying(game_audio->typing_sound)) {
+                PlaySound(game_audio->typing_sound);
+            }
+        }
+    }
+    
+    // SPACE key handling
+    if (IsKeyPressed(KEY_SPACE)) {
+        if (story->ending_typing_index < text_len) {
+            // Skip typing effect
+            story->ending_typing_index = text_len;
+            if (game_audio && IsSoundPlaying(game_audio->typing_sound)) StopSound(game_audio->typing_sound);
+        } else {
+            // Advance to next line
+            story->ending_current_line++;
+            story->ending_typing_index = 0;
+            story->ending_typing_timer = 0.0f;
+            
+            // If past last line, show credits
+            if (story->ending_current_line >= story->ending_line_count) {
+                story->ending_show_credits = true;
+            }
+        }
+    }
 }

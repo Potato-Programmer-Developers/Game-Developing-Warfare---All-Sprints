@@ -137,6 +137,11 @@ void RunGame(Character *player, Audio *game_audio, Settings *game_settings,
             HandleNarrationInput(game_context, (int*)game_state, game_audio);
         }
                 
+        // Input Handling: Ending Sequence
+        if (*game_state == ENDING_CUTSCENE) {
+            HandleEndingInput(game_context, (int*)game_state, game_audio);
+        }
+                
         // Trigger NARRATION_CUTSCENE when narration becomes active during GAMEPLAY
         if (*game_state == GAMEPLAY && game_context->story.narration_active) {
             // Only enter if fade is not in progress (camera/map are settled)
@@ -172,6 +177,7 @@ void RunGame(Character *player, Audio *game_audio, Settings *game_settings,
         DrawGame(game_scene, game_settings, game_interactive, game_map, player,
             game_dialogue, game_context, game_state, game_context->worldNPCs,
             game_context->worldItems);
+        TraceLog(LOG_WARNING,"%f\n", player->sanity);
     }
 }
 

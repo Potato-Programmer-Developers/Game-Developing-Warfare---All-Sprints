@@ -178,7 +178,7 @@ void ResetGameData(struct GameContext* context, Vector2 default_spawn){
     // Reset Player
     player->position = default_spawn;
     player->inventory_count = 0;
-    player->sanity = 0.0f;
+    player->sanity = 100.0f;
     player->direction = 0;
     
     // Reset World
@@ -213,5 +213,12 @@ void HandleGameData(struct GameContext* context, Map* game_map, Settings* game_s
         ResetGameData(context, game_map->spawn_position);
     } else {
         ApplyData(context, game_settings, &data); 
+    }
+}
+
+void DeleteSaveData(void){
+    if (FileExists("../data/data.dat")){
+        remove("../data/data.dat");
+        TraceLog(LOG_INFO, "SAVE DATA DELETED");
     }
 }

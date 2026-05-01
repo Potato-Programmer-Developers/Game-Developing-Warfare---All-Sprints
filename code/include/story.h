@@ -143,6 +143,9 @@ typedef struct StoryPhase {
     char phone_sender[64];                   // Phone sender for this phase
     PhoneMessage phone_messages[32];         // Phone messages for this phase
     int phone_message_count;                 // Number of phone messages
+    // Ending data
+    char ending_file[128];                   // Ending script filename (e.g. "mike_ending1.txt")
+    bool has_ending;                         // Whether this phase triggers a game ending
 } StoryPhase;
 
 /**
@@ -189,6 +192,15 @@ typedef struct StorySystem {
     float scene_timer;                      // Timer for SCENE overlays
     char current_scene[32];                 // Text for the current scene (e.g., "FLASHBACK")
     bool phone_pending;                     // Flag to start interactive phone sequence
+
+    // Ending sequence state
+    bool ending_active;                     // Is an ending sequence playing?
+    bool ending_show_credits;               // Show credits screen after ending
+    char ending_lines[80][256];             // Ending text lines (speaker: text)
+    int ending_line_count;                  // Total ending lines
+    int ending_current_line;                // Currently displayed line index
+    float ending_typing_timer;              // Typing effect timer
+    int ending_typing_index;                // Typing effect character index
 } StorySystem;
 
 /**
@@ -238,5 +250,14 @@ void HandleNarrationInput(struct GameContext* game_context, int* game_state, str
  * @param game_context Pointer to the GameContext.
  */
 void LoadPhaseNarration(StoryPhase* phase, struct GameContext* game_context);
+
+/**
+ * @brief Handles player input during ENDING_CUTSCENE state.
+ *
+ * @param game_context Pointer to the GameContext.
+ * @param game_state Pointer to the current game state.
+ * @param game_audio Pointer to the audio system for sound effects.
+ */
+void HandleEndingInput(struct GameContext* game_context, int* game_state, struct Audio* game_audio);
 
 #endif

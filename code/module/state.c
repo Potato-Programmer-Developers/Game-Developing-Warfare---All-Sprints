@@ -302,7 +302,13 @@ int UpdateGame(GameState* game_state, struct Interactive* game_interactive, Char
         case NARRATION_CUTSCENE:
             // Keep story timer running for phone auto-advance during narration
             UpdateStory(game_context, GetFrameTime());
-            if (!game_context->story.narration_active) *game_state = GAMEPLAY;
+            if (!game_context->story.narration_active) {
+                if (game_context->story.ending_active) {
+                    *game_state = ENDING_CUTSCENE;
+                } else {
+                    *game_state = GAMEPLAY;
+                }
+            }
             HideCursor();
             break;
         case PHOTO_CUTSCENE:
@@ -331,6 +337,9 @@ int UpdateGame(GameState* game_state, struct Interactive* game_interactive, Char
                 ClearCutscene(game_scene);
                 *game_state = GAMEPLAY; game_scene->current_cutscene_frame = 0;
             }
+            break;
+        case ENDING_CUTSCENE:
+            HideCursor();
             break;
         default: break;
     }

@@ -30,7 +30,8 @@ typedef enum {
 	SETTINGS,          // Configuration sub-menu
 	DIALOGUE_CUTSCENE, // Locked state focused on text interaction
 	PHOTO_CUTSCENE,    // Non-interactive animated sequence
-	NARRATION_CUTSCENE // Locked state for interactive narration sequences
+	NARRATION_CUTSCENE,// Locked state for interactive narration sequences
+	ENDING_CUTSCENE    // Game ending sequence (black screen + dialogue)
 } GameState;
 
 /**

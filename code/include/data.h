@@ -100,4 +100,9 @@ void ResetGameData(struct GameContext* context, Vector2 default_spawn);
  */
 void HandleGameData(struct GameContext* context, Map* game_map, Settings* game_settings);
 
+/**
+ * @brief Deletes the save file from disk.
+ */
+void DeleteSaveData(void);
+
 #endif

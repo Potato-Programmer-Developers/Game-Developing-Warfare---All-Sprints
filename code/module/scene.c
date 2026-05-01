@@ -326,6 +326,71 @@ void DrawGame(Scene *game_scene, Settings *game_settings, Interactive *game_inte
         }
     }
 
+    // Draw Ending Sequence
+    if (*game_state == ENDING_CUTSCENE && game_context->story.ending_active) {
+        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), BLACK);
+        
+        if (game_context->story.ending_show_credits) {
+            // Credits screen
+            const char* thanks = "Thank You for Playing";
+            const char* team = "Potato";
+            int thanks_w = MeasureText(thanks, 30);
+            int team_w = MeasureText(team, 24);
+            DrawText(thanks, GetScreenWidth() / 2 - thanks_w / 2, GetScreenHeight() / 2 - 40, 30, WHITE);
+            DrawText(team, GetScreenWidth() / 2 - team_w / 2, GetScreenHeight() / 2 + 10, 24, GOLD);
+            DrawText("Press 'SPACE' to continue", GetScreenWidth() / 2 - MeasureText("Press 'SPACE' to continue", 16) / 2, GetScreenHeight() / 2 + 60, 16, GRAY);
+        } else if (game_context->story.ending_current_line < game_context->story.ending_line_count) {
+            // Parse "Speaker: text" format
+            const char* full_line = game_context->story.ending_lines[game_context->story.ending_current_line];
+            int line_len = strlen(full_line);
+            
+            // Find colon separator for speaker
+            const char* colon = strchr(full_line, ':');
+            if (colon) {
+                // Draw speaker name in GOLD
+                int speaker_len = (int)(colon - full_line);
+                char speaker[64] = {0};
+                strncpy(speaker, full_line, speaker_len < 63 ? speaker_len : 63);
+                
+                const char* dialogue_text = colon + 1;
+                while (*dialogue_text == ' ') dialogue_text++;
+                
+                // Fixed X positions based on full line
+                int speaker_x = GetScreenWidth() / 2 - MeasureText(full_line, 20) / 2;
+                int speaker_w = MeasureText(speaker, 20);
+                int colon_w = MeasureText(": ", 20);
+                
+                // Typing effect: figure out what to show
+                int typed_chars = game_context->story.ending_typing_index;
+                if (typed_chars <= speaker_len + 2) {
+                    // Still typing speaker name + ": "
+                    const char* typed = TextSubtext(full_line, 0, typed_chars);
+                    DrawText(typed, speaker_x, GetScreenHeight() / 2, 20, GOLD);
+                } else {
+                    // Speaker fully displayed, now typing dialogue
+                    char speaker_prefix[68] = {0};
+                    snprintf(speaker_prefix, sizeof(speaker_prefix), "%s: ", speaker);
+                    DrawText(speaker_prefix, speaker_x, GetScreenHeight() / 2, 20, GOLD);
+                    
+                    int dialogue_start = speaker_len + 2; // "Speaker: " length
+                    int dialogue_typed = typed_chars - dialogue_start;
+                    const char* typed_dialogue = TextSubtext(dialogue_text, 0, dialogue_typed);
+                    DrawText(typed_dialogue, speaker_x + speaker_w + colon_w, GetScreenHeight() / 2, 20, WHITE);
+                }
+            } else {
+                // No colon — plain text line
+                int start_x = GetScreenWidth() / 2 - MeasureText(full_line, 20) / 2;
+                const char* typed = TextSubtext(full_line, 0, game_context->story.ending_typing_index);
+                DrawText(typed, start_x, GetScreenHeight() / 2, 20, WHITE);
+            }
+            
+            // Show "Press SPACE to continue" when typing is done
+            if (game_context->story.ending_typing_index >= line_len) {
+                DrawText("Press 'SPACE' to continue", GetScreenWidth() - 300, GetScreenHeight() - 40, 20, GRAY);
+            }
+        }
+    }
+
     // Draw fade overlay for cutscenes
     if (game_scene->fade_alpha > 0.01f){
         DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(game_scene->fade_color, game_scene->fade_alpha));
