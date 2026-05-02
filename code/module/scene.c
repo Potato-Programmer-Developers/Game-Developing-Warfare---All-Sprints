@@ -243,8 +243,8 @@ void DrawGame(Scene *game_scene, Settings *game_settings, Interactive *game_inte
                 DrawText(qText, 35, 55 + (i * 25), 18, qColor);
             }
             
-            // Draw tooltip for tutorial in SET1-PHASE1
-            if (strcmp(active_phase->name, "SET1-PHASE1") == 0){
+            // Draw tooltip for tutorial in SET1-PHASE1 of Day 1
+            if (strcmp(active_phase->name, "SET1-PHASE1") == 0 && strcmp(game_context->story.day_folder, "day1") == 0){
                 const char* tooltip = NULL;
                 if (!active_phase->quests[0].completed && *game_state == GAMEPLAY) tooltip = "WASD TO MOVE";
                 else if (active_phase->quest_count > 1 && !active_phase->quests[1].completed && *game_state == GAMEPLAY) tooltip = "PRESS 'E' TO INTERACT";

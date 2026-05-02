@@ -444,6 +444,29 @@ void LoadInteraction(const char* filename, Dialogue* dialogue, struct GameContex
                         if (!met) continue; // HIDDEN per user request
                     }
 
+                    // Check for inline sanity condition
+                    char* sanity_tag = strstr(label, "| SANITY");
+                    if (sanity_tag) {
+                        char op;
+                        int target_val;
+                        if (sscanf(sanity_tag, "| SANITY %c %d", &op, &target_val) == 2 && context) {
+                            bool met = false;
+                            if (op == '<') met = (context->player->sanity < target_val);
+                            else if (op == '>') met = (context->player->sanity > target_val);
+                            else if (op == '=') met = (context->player->sanity == target_val);
+                            
+                            if (!met) {
+                                skip_block = true;
+                                skip_indent = line_indent;
+                                continue; // Skip this choice and its children
+                            }
+                        }
+                        // Remove the tag from the label so it doesn't show in UI
+                        *sanity_tag = '\0';
+                        char* end = sanity_tag - 1;
+                        while(end > label && *end == ' ') { *end = '\0'; end--; }
+                    }
+
                     // Metadata tags
                     if (strstr(label, "(-Johnny)")) dialogue->nodes[current_parent_idx].karma_change -= 10;
                     if (strstr(label, "(+Johnny)")) dialogue->nodes[current_parent_idx].karma_change += 10;

@@ -199,6 +199,7 @@ int UpdateGame(GameState* game_state, struct Interactive* game_interactive, Char
                         else if (destLoc == EXTERIOR) {targetMap = "../assets/map/map_ext/MAINMAP.json"; targetLocStr = "EXTERIOR";}
                         else if (destLoc == INTERIOR) {targetMap = "../assets/map/map_int/MAIN_MAP_INT.json"; targetLocStr = "INTERIOR";}
                         else if (destLoc == FARM) {targetMap = "../assets/map/map_farm/FARM.json"; targetLocStr = "FARM";}
+                        else if (destLoc == FOREST) {targetMap = "../assets/map/map_forest/forest.json"; targetLocStr = "FOREST";}
                         StartFadeTransition(game_scene, BLACK, targetMap, targetLocStr, spawnObj);
                         
                         // Prevent triggering map transitions endlessly

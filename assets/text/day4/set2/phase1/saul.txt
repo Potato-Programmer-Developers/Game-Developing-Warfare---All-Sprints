@@ -8,6 +8,7 @@
     Saul: Why are you always talking about him?
 [CHOICE3] Let me forget.. | SANITY < 50
     Saul: What the f*ck are you talking about??
+    [TRIGGER_ENDING] saul_ending2.txt
 
 [CHOICE1] Tell him the truth.
     Kane: I killed my brother.
@@ -31,10 +32,24 @@
     Kane: I will live.
 
     Saul: What you did was cruel.
-    Saul: But I’m in no position to judge you.
+    Saul: But I'm in no position to judge you.
     Saul: You made a mistake
-    Saul: You’re human
+    Saul: You're human
     Saul: Do you think your brother would have forgiven you?
+    [CHOICE1] I hope he would.
+        Saul: You are human.
+        Saul: I will forgive you.
+        Saul: If you choose to forgive yourself.
+        Saul: What will you do?
+        [CHOICE1] Remember
+            [TRIGGER_ENDING] saul_ending1.txt
+    [CHOICE2] That's not up to me.
+        Saul: You are human.
+        Saul: I will forgive you.
+        Saul: If you choose to forgive yourself.
+        Saul: What will you do?
+        [CHOICE1] Remember
+            [TRIGGER_ENDING] saul_ending1.txt
 [CHOICE2] Lie to him.
     Kane: I killed my brother.
     Kane: I don't know how it happened. It was an accident.
@@ -55,24 +70,13 @@
     Kane: I want to live..
     Kane: To forget.
     Kane: I will live.
-    [CHOICE1] I hope he would.
-        Saul: You are human.
-        Saul: I will forgive you.
-        Saul: If you choose to forgive yourself.
-        Saul: What will you do?
-        [CHOICE1] Remember
-            [TRIGGER_ENDING] saul_ending1.txt
-    [CHOICE2] That's not up to me.
-        Saul: You are human.
-        Saul: I will forgive you.
-        Saul: If you choose to forgive yourself.
-        Saul: What will you do?
-        [CHOICE1] Remember
-            [TRIGGER_ENDING] saul_ending1.txt
-Saul: Kane…
-    Saul: You’re lying, aren’t you?
-    Saul: Your eyes…
-    Saul: They’re empty
-    Saul: It wasn’t an accident.. Wasn’t it?
-    [CHOICE1] Why won’t you let me forget?
+
+    Saul: Kane…
+    Saul: You're lying, aren't you?
+    Saul: Your eyes...
+    Saul: They're empty
+    Saul: It wasn't an accident.. Wasn't it?
+    [CHOICE1] Why won't you let me forget?
+        [TRIGGER_ENDING] saul_ending2.txt
 [CHOICE3] Let me forget.. | SANITY < 50
+    [TRIGGER_ENDING] saul_ending2.txt

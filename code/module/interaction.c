@@ -461,20 +461,6 @@ void InteractWithItem(Item *item, Dialogue *game_dialogue, GameState *game_state
     }
     // If the item is a pickup item
     if (item->is_pickup){
-        if (strcmp(item->base.interactable_id, "forest_road") == 0) {
-            bool has_saul_quest = false;
-            StoryPhase* active_phase = GetActivePhase(&game_context->story);
-            if (active_phase) {
-                for (int i = 0; i < active_phase->quest_count; i++) {
-                    if (strstr(active_phase->quests[i].description, "Go to the forest and find Saul")) {
-                        has_saul_quest = true;
-                        break;
-                    }
-                }
-            }
-            if (!has_saul_quest) return;
-        }
-
         if (strcmp(item->base.interactable_id, "lawnmower") == 0) {
             StoryPhase* active = GetActivePhase(&game_context->story);
             if (!active || strcmp(active->name, "SET2-PHASE2") != 0) return;
@@ -514,6 +500,19 @@ void InteractWithDoor(Door *door, Map *map, Character *player, Dialogue *game_di
     if (door == NULL || map == NULL || player == NULL || game_context == NULL) return;
     StoryPhase* active = GetActivePhase(&game_context->story);
     if (IsOtherQuestsPending(active, door->base.interactable_id)) return;
+
+    if (strcmp(door->base.interactable_id, "forest_road") == 0) {
+        bool has_saul_quest = false;
+        if (active) {
+            for (int i = 0; i < active->quest_count; i++) {
+                if (strstr(active->quests[i].description, "Go to the forest and find Saul")) {
+                    has_saul_quest = true;
+                    break;
+                }
+            }
+        }
+        if (!has_saul_quest) return;
+    }
 
     // Determine target location string based on the door's targetLocation enum
     const char* target_loc = "INTERIOR"; // Default

@@ -36,9 +36,12 @@ Data LoadData(Settings* game_settings){
     // Check if the data file exists
     if (FileExists("../data/data.dat")){
         unsigned char* file_data = LoadFileData("../data/data.dat", &file_size);
-        // Check if the data file is valid
         if (file_data != NULL && file_size == sizeof(Data)){
             memcpy(&data, file_data, sizeof(Data));       // Copy the data from the file to the data struct
+        } else {
+            data.position = (Vector2){-1.0f, -1.0f};      // Set to -1 to indicate invalid save data
+            data.volume = game_settings->game_volume;
+            TraceLog(LOG_WARNING, "Save data version mismatch! Expected %lu bytes, got %d bytes. Resetting.", sizeof(Data), file_size);
         }
         UnloadFileData(file_data);                      // Unload the data from the file
     } else {

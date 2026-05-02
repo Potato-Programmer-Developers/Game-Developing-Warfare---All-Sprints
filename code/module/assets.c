@@ -273,14 +273,29 @@ void LoadPhaseAssets(StoryPhase* phase, GameContext* context){
             
             // Hardcoded targets: each door always leads to the same map
             if (strcmp(meta->id, "house_door") == 0){
-                strcpy(door->targetMapPath, "../assets/map/map_int/MAIN_MAP_INT.json");
-                door->targetLocation = INTERIOR;
+                if (context->location == EXTERIOR) {
+                    strcpy(door->targetMapPath, "../assets/map/map_int/MAIN_MAP_INT.json");
+                    door->targetLocation = INTERIOR;
+                } else {
+                    strcpy(door->targetMapPath, "../assets/map/map_ext/MAINMAP.json");
+                    door->targetLocation = EXTERIOR;
+                }
             } else if (strcmp(meta->id, "farm_road") == 0){
-                strcpy(door->targetMapPath, "../assets/map/map_farm/FARM.json");
-                door->targetLocation = FARM;
+                if (context->location == EXTERIOR) {
+                    strcpy(door->targetMapPath, "../assets/map/map_farm/FARM.json");
+                    door->targetLocation = FARM;
+                } else {
+                    strcpy(door->targetMapPath, "../assets/map/map_ext/MAINMAP.json");
+                    door->targetLocation = EXTERIOR;
+                }
             } else if (strcmp(meta->id, "forest_road") == 0){
-                strcpy(door->targetMapPath, "../assets/map/map_ext/MAINMAP.json");
-                door->targetLocation = EXTERIOR;
+                if (context->location == EXTERIOR) {
+                    strcpy(door->targetMapPath, "../assets/map/map_forest/forest.json");
+                    door->targetLocation = FOREST;
+                } else {
+                    strcpy(door->targetMapPath, "../assets/map/map_ext/MAINMAP.json");
+                    door->targetLocation = EXTERIOR;
+                }
             }
 
             sprintf(door->base.dialoguePath, "../assets/text/%s/set%d/phase%d/%s.txt", 

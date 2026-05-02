@@ -88,6 +88,7 @@ typedef struct StoryCondition {
     StoryConditionType type;         // Type of condition
     char target_id[64];              // e.g., "fridge" or "farmer"
     float target_value;              // e.g., timer duration or expected choice index
+    float target_value2;             // Optional secondary value (e.g. for OR locations)
     bool met;                        // Whether this specific condition is satisfied
     int current_count;               // Tracker for COLLECTION conditions
 } StoryCondition;

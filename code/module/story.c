@@ -454,8 +454,23 @@ void LoadStoryDay(StorySystem* story, const char* path, struct GameContext* game
                         sscanf(line, "[CONDITION] TIME_PASS %f", &cond->target_value);
                     } else if (strcmp(type_str, "ENTER_LOCATION") == 0){
                         cond->type = CONDITION_ENTER_LOCATION;
-                        char loc_str[32];
-                        if (sscanf(line, "[CONDITION] ENTER_LOCATION %s", loc_str) == 1){
+                        cond->target_value2 = -1.0f; // Initialize as none
+                        char loc_str[32] = {0};
+                        char loc_str2[32] = {0};
+                        
+                        if (sscanf(line, "[CONDITION] ENTER_LOCATION %s OR %s", loc_str, loc_str2) == 2){
+                            if (strcmp(loc_str, "INTERIOR") == 0) cond->target_value = (float)STORY_LOC_INTERIOR;
+                            else if (strcmp(loc_str, "EXTERIOR") == 0) cond->target_value = (float)STORY_LOC_EXTERIOR;
+                            else if (strcmp(loc_str, "FARM") == 0) cond->target_value = (float)STORY_LOC_FARM;
+                            else if (strcmp(loc_str, "FOREST") == 0) cond->target_value = (float)STORY_LOC_FOREST;
+                            else if (strcmp(loc_str, "APARTMENT") == 0) cond->target_value = (float)STORY_LOC_APARTMENT;
+                            
+                            if (strcmp(loc_str2, "INTERIOR") == 0) cond->target_value2 = (float)STORY_LOC_INTERIOR;
+                            else if (strcmp(loc_str2, "EXTERIOR") == 0) cond->target_value2 = (float)STORY_LOC_EXTERIOR;
+                            else if (strcmp(loc_str2, "FARM") == 0) cond->target_value2 = (float)STORY_LOC_FARM;
+                            else if (strcmp(loc_str2, "FOREST") == 0) cond->target_value2 = (float)STORY_LOC_FOREST;
+                            else if (strcmp(loc_str2, "APARTMENT") == 0) cond->target_value2 = (float)STORY_LOC_APARTMENT;
+                        } else if (sscanf(line, "[CONDITION] ENTER_LOCATION %s", loc_str) == 1){
                             if (strcmp(loc_str, "INTERIOR") == 0) cond->target_value = (float)STORY_LOC_INTERIOR;
                             else if (strcmp(loc_str, "EXTERIOR") == 0) cond->target_value = (float)STORY_LOC_EXTERIOR;
                             else if (strcmp(loc_str, "FARM") == 0) cond->target_value = (float)STORY_LOC_FARM;
@@ -567,6 +582,7 @@ static bool AllConditionsMet(StoryPhase* active, struct GameContext* game_contex
 
             case CONDITION_ENTER_LOCATION:
                 if (game_context->location == (int)cond->target_value) cond->met = true;
+                else if (cond->target_value2 != -1.0f && game_context->location == (int)cond->target_value2) cond->met = true;
                 if (!cond->met) return false;
                 break;
 
