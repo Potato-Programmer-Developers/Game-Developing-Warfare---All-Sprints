@@ -4,6 +4,14 @@
  * 
  * Handles management of tilesets and interactions with the cute_tiled library.
  * 
+ * Update History:
+ * - 2026-05-02: Added `bear_trap_inside` parameter to `DrawMap`. (Goal: Pass the bear trap
+ *                visibility flag from `GameContext` to the map renderer for conditional layer drawing.)
+ * 
+ * Revision Details:
+ * - Updated `DrawMap` signature to include `bool bear_trap_inside` for conditional `bear_trap`
+ *    tile layer rendering.
+ * 
  * Authors: Andrew Zhuo
  */
 

@@ -19,6 +19,11 @@
  *                compares the incoming map file path against the currently loaded path and only performs
  *                state resets when the player is truly transitioning between distinct map locations,
  *                preserving all narrative state during seamless SET4-PHASE1 to SET4-PHASE2 transitions.)
+ * - 2026-05-02: Added `ENDING_CUTSCENE` state handling. (Goal: Support the ending sequence as a
+ *                distinct game state with cursor hiding and transitions from `NARRATION_CUTSCENE`.)
+ * - 2026-05-02: Added Forest map transition support and MAINMENU layout refresh. (Goal: Enable
+ *                narrative routing to the forest map and ensure UI hitboxes refresh when returning
+ *                to the main menu after credits.)
  * 
  * Revision Details:
  * - Implemented a global fade update hook in `UpdateGame` to manage asynchronous map transitions.
@@ -42,6 +47,11 @@
  * - Added `strcmp(map->current_path, target_path)` guard in the INTERIOR map load handler to
  *    conditionally reset `fireplace_on`, `main_door_locked`, and `doors` only when the player is
  *    entering a new map location, preventing state wipes during internal phase transitions.
+ * - Added `ENDING_CUTSCENE` case in the main state machine with `HideCursor()` logic.
+ * - Added `ending_active` check in `NARRATION_CUTSCENE` transition to route to the ending sequence.
+ * - Added `FOREST` location support in the phase-transition routing to `map_forest/forest.json`.
+ * - Implemented an `UpdateInteractiveLayout` trigger upon entering `MAINMENU` state to ensure
+ *    button hitboxes align with the current save-availability state (e.g., after credits delete save).
  * 
  * Authors: Andrew Zhuo and Steven Kenneth Darwy
  */

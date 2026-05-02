@@ -9,6 +9,9 @@
  *                directly to the global Audio system.)
  * - 2026-04-06: Comprehensive "Asset-Light" & "Dynamic Scaling" Refactor. (Goal: Eliminate 
  *                static textures and implement resolution-independent UI layout logic.)
+ * - 2026-05-02: Fixed ghost "Continue" button after credits delete save data. (Goal: Ensure
+ *                the `continue_bounds` are explicitly reset when no save file exists, preventing
+ *                stale hover hitboxes on the Main Menu.)
  * 
  * Revision Details:
  * - Cleaned up `InitInteractive` to remove all `LoadTexture` calls for menu logic.
@@ -21,6 +24,8 @@
  *    dynamically based on the current `GetScreenWidth()` and `GetScreenHeight()`.
  * - Replaced hardcoded button coordinates with a scaling engine using `REF_WIDTH` (1200) 
  *    and `REF_HEIGHT` (800) as a baseline.
+ * - Added `interactive->continue_bounds = (Rectangle){0, 0, 0, 0}` in `UpdateInteractiveLayout`
+ *    when `data.dat` is missing to eliminate "ghost" hitboxes.
  * 
  * Authors: Andrew Zhuo
  */

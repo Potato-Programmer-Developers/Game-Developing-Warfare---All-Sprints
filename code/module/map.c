@@ -1,3 +1,25 @@
+/**
+ * @file map.c
+ * @brief Declarations for Tiled map loading and spatial collision queries.
+ * 
+ * Update History:
+ * - 2026-05-02: Implemented stateless tile animation rendering. (Goal: Support Tiled
+ *                animation data by calculating the current animation frame on-the-fly using
+ *                `GetTime()` modulo arithmetic, enabling campfire-style tile animations without
+ *                additional state variables.)
+ * - 2026-05-02: Added conditional `bear_trap` layer rendering. (Goal: Skip the `bear_trap`
+ *                tile layer unless `bear_trap_inside` is `true` in `GameContext`, allowing the
+ *                bear trap to only appear in the interior map when the narrative has set it.)
+ * 
+ * Revision Details:
+ * - Added `bool bear_trap_inside` parameter to `DrawMap` signature.
+ * - Added a layer-skip check for the "bear_trap" layer based on the `bear_trap_inside` flag.
+ * - Implemented Tiled tile animation support in `DrawMap` by traversing tile descriptors and
+ *    calculating the current frame based on total animation duration and elapsed game time.
+ * 
+ * Authors: Andrew Zhuo
+ */
+
 #define CUTE_TILED_IMPLEMENTATION
 #include <stdbool.h>
 #include <stdio.h>

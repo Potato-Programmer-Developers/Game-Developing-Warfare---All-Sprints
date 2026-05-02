@@ -9,11 +9,31 @@
  *                orientations simultaneously.)
  * - 2026-04-05: Integrated audio resource cleanup. (Goal: Ensure `UnloadWave` 
  *                and `UnloadSound` are called correctly during map transitions.)
+ * - 2026-05-02: Added Forest map interactables to the asset registry. (Goal: Register `giant_tree`,
+ *                `campfire`, and `tent` objects so they can be spawned and interacted with on the
+ *                Forest map.)
+ * - 2026-05-02: Implemented bidirectional door routing. (Goal: Doors now route to different maps
+ *                depending on the player's current location — e.g., `house_door` goes to INTERIOR
+ *                from EXTERIOR but back to EXTERIOR from INTERIOR — replacing the previous
+ *                one-directional hardcoded routing.)
+ * - 2026-05-02: Added `forest_road` door routing to the Forest map. (Goal: Enable the player to
+ *                travel from EXTERIOR to FOREST via the `forest_road` door, and back.)
+ * - 2026-05-02: Set initial karma for farmer and saul NPCs to 49. (Goal: Establish a neutral
+ *                starting karma for both NPCs so that karma-gated dialogue branches work correctly
+ *                from the start.)
+ * - 2026-05-02: Added `GetAssetKarma` lookup function. (Goal: Allow the dialogue system to query
+ *                an NPC's current karma value for `[IF] KARMA` conditional branches.)
  * 
  * Revision Details:
  * - Implemented `LoadCharacterTextures` to batch-load Kane's movement set.
  * - Added `UnloadPlayerTextures` helper for clean state resets.
  * - Fixed a resource leak where TMX tilemap textures were not being freed properly.
+ * - Added `giant_tree`, `campfire`, and `tent` entries to `ASSET_REGISTRY` with
+ *    `INTERACTABLE_TYPE_ITEM` for Forest map objects.
+ * - Refactored `house_door`, `farm_road`, and `forest_road` routing in `LoadPhaseAssets` to check
+ *    `context->location` and set bidirectional target maps/locations.
+ * - Changed `farmer` and `saul` karma from `0` to `49` in the asset registry.
+ * - Added `GetAssetKarma` function that calls `FindInRegistry` and returns the karma value.
  * 
  * Authors: Andrew Zhuo
  */

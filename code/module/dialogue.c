@@ -12,6 +12,21 @@
  * - 2026-04-07: Implemented "Phone Notification" tags and "Sequential Follow-ups." (Goal: 
  *                Allow dialogues to trigger phase-based phone messages and merge choice-leaves 
  *                into sequential conversations.)
+ * - 2026-05-02: Implemented inline `SANITY` threshold gating for dialogue choices. (Goal: Support
+ *                `| SANITY > 50` syntax on `[CHOICE]` labels to dynamically hide choices when the
+ *                player's sanity does not meet the threshold, enabling the Saul ending branch where
+ *                certain options only appear if sanity is sufficiently high.)
+ * - 2026-05-02: Added `[IF] KARMA`, `[IF] CORRECT PLANTED`, and `[IF] BOX_SCORE` conditional blocks.
+ *                (Goal: Support conditional dialogue branching based on NPC karma values,
+ *                correctly-planted pot counts, and box puzzle scores for Day 3 and Day 4 interactions.)
+ * - 2026-05-02: Added `[TRIGGER_ENDING]` tag parsing in dialogue nodes. (Goal: Allow a dialogue
+ *                choice to directly trigger an ending sequence by specifying the ending script filename,
+ *                used for farmer and Saul endings.)
+ * - 2026-05-02: Expanded response buffer from 10 to 32. (Goal: Support longer NPC conversations
+ *                in Day 3 and Day 4 farmer dialogues that exceed the previous 10-line limit.)
+ * - 2026-05-02: Changed implicit line parsing to auto-set `is_conversation = true`. (Goal: Lines
+ *                without explicit tags are now treated as conversation responses automatically,
+ *                simplifying dialogue file authoring.)
  * 
  * Revision Details:
  * - Added a recursive-like stack parser in `LoadInteraction` to handle multi-level indentation.
@@ -23,6 +38,16 @@
  * - Optimized character buffer handling for narrative checks.
  * - Added `[PHONE]` tag parsing to `LoadInteraction`, mapping it to `DialogueNode.triggers_phone`.
  * - Implemented root-level `[CONVERSATION]` linking to bridge different dialogue blocks.
+ * - Added `| SANITY > N` / `| SANITY < N` parsing on `[CHOICE]` labels: extracts operator and
+ *    threshold via `sscanf`, evaluates against `context->player->sanity`, and hides the choice
+ *    (via `skip_block`) if not met. The tag text is stripped from the displayed label.
+ * - Added `[IF] KARMA` block parsing using `GetAssetKarma(interactable_id)` with `>`, `<`, `==`.
+ * - Added `[IF] CORRECT PLANTED` block parsing that counts correctly-planted pots.
+ * - Added `[IF] BOX_SCORE` block parsing using `context->left_box_big + context->right_box_small`.
+ * - Added `[TRIGGER_ENDING]` tag parsing on dialogue nodes, storing the filename in `trigger_ending_file`.
+ * - Expanded `response_count` bounds check from `r_idx < 10` to `r_idx < 32` in both `[RESPONSE]`
+ *    and implicit line parsing blocks.
+ * - Changed implicit line parsing (`else if (line[0] != '[')`) to set `is_conversation = true`.
  * 
  * Authors: Andrew Zhuo and Cornelius Jabez Lim
  */

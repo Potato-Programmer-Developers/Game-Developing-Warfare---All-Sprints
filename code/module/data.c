@@ -9,6 +9,12 @@
  *                like talking to the farmer, are remembered across sessions.)
  * - 2026-04-05: Integrated the `StorySystem` save hook. (Goal: Store current Set/Phase 
  *                indices to allow accurate story resumption.)
+ * - 2026-05-02: Improved save data versioning and restoration order. (Goal: Support
+ *                conditional quest loading by restoring world state before story state, and
+ *                add version mismatch handling for the `Data` struct.)
+ * - 2026-05-02: Fixed initial sanity and karma values. (Goal: Set default sanity to 100
+ *                and NPC karma to neutral (49) to ensure correct branching in Day 4.)
+ * - 2026-05-02: Added `DeleteSaveData` functionality. (Goal: Allow post-credits cleanup.)
  * 
  * Revision Details:
  * - Refactored `LoadData` to include a path validation check for missing assets.
@@ -16,6 +22,10 @@
  * - Added a restoration hook for `Location` enums to ensure the player spawns in the 
  *    correct map type (Interior/Exterior).
  * - Fixed a data-truncation bug when saving long NPC ID strings.
+ * - Added `file_size == sizeof(Data)` validation in `LoadData` with invalid-state fallback.
+ * - Reordered `ApplyData` to restore world state (pickups, pots, NPCs) before `LoadStoryDay`.
+ * - Fixed default player sanity to `100.0f` and initial farmer/saul karma to `49` in `ResetGameData`.
+ * - Implemented `DeleteSaveData` using `remove("../data/data.dat")`.
  * 
  * Authors: Andrew Zhuo
  */

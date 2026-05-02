@@ -14,6 +14,8 @@
  *                dynamically triggered by `[PLAY]` tags during SET4-PHASE2 narration sequences.
  *                These sounds create an escalating atmosphere of dread during the nightly interior
  *                scene, where the player's earlier choices determine which sounds are heard.)
+ * - 2026-05-02: Loaded and managed the `credit.mp3` music stream. (Goal: Ensure the credit music
+ *                is streamed from disk, updated every frame, and properly unloaded on shutdown.)
  * 
  * Revision Details:
  * - Refactored `PlayStep` to switch sound profiles based on the `Location` context.
@@ -24,6 +26,9 @@
  *    `chimney_rustling.mp3` from the `assets/audios/` directory.
  * - Added corresponding `UnloadSound` calls in `UnloadAudio` for the three new sound handles to
  *    prevent memory leaks during shutdown.
+ * - Added `LoadMusicStream("../assets/audios/credit.mp3")` in `InitAudio`.
+ * - Added `UpdateMusicStream(audio->credit_music)` in `UpdateAudio`.
+ * - Added `UnloadMusicStream(audio->credit_music)` in `CloseAudio`.
  * 
  * Authors: Andrew Zhuo
  */

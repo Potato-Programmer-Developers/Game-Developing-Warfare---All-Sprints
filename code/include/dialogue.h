@@ -7,10 +7,17 @@
  *                static NPC responses.)
  * - 2026-04-07: Added `triggers_phone` Support. (Goal: Enable branching dialogues 
  *                to initiate narrative phone sequences.)
+ * - 2026-05-02: Added `trigger_ending_file` field and expanded response capacity. (Goal: Support
+ *                dialogue-triggered endings and longer Day 3/4 NPC conversations that exceed the
+ *                previous 10-line response limit.)
  * 
  * Revision Details:
  * - Expanded `DialogueNode` to include a boolean flag for phone-triggering.
  * - Updated prototypes to support cross-module narrative signaling.
+ * - Added `char trigger_ending_file[64]` to `DialogueNode` for storing the ending script filename
+ *    parsed from `[TRIGGER_ENDING]` tags in dialogue files.
+ * - Expanded `responses` array from 10 to 32 entries and `response_once` from 10 to 32 entries
+ *    to accommodate longer NPC conversations in Day 3 and Day 4.
  * 
  * Authors: Andrew Zhuo and Cornelius Jabez Lim
  */

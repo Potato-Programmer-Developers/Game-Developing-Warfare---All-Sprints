@@ -12,6 +12,16 @@
  * - 2026-04-06: Expansion of the "UI Animation Engine." (Goal: Modularize frame loading logic 
  *                to support diverse menu animations—Main, Pause, and Settings—while maintaining 
  *                low VRAM usage through on-demand loading.)
+ * - 2026-05-02: Implemented the `ENDING_CUTSCENE` renderer with typed dialogue and scrolling credits.
+ *                (Goal: Draw ending sequences as typed `Speaker: dialogue` text on a black screen,
+ *                then render a scrolling credits sequence with paragraph-aware role/name coloring,
+ *                special title formatting, and a gated SPACE prompt.)
+ * - 2026-05-02: Fixed tutorial tooltip rendering to only display on Day 1. (Goal: Prevent
+ *                tooltips from appearing on every `SET1-PHASE1` across all days by adding a
+ *                `day_folder == "day1"` guard.)
+ * - 2026-05-02: Added dialogue box typing effect with speaker-aware coloring. (Goal: Display
+ *                dialogue text with a typewriter effect that correctly colors the speaker name in
+ *                GOLD and dialogue text in WHITE.)
  * 
  * Revision Details:
  * - Refactored `DrawGame` to include conditional rendering for `NARRATION_CUTSCENE` and `PHONE` overlays.
@@ -22,6 +32,14 @@
  *    `../assets/videos/esc_option/` directory.
  * - Refactored `DrawPauseMenu` to render `current_cutscene_frame_texture` as its background, 
  *    removing the requirement for a static background texture.
+ * - Added `ENDING_CUTSCENE` rendering block in `DrawGame` with two sub-states: dialogue display
+ *    (typed `Speaker: text` with GOLD/WHITE coloring) and scrolling credits.
+ * - Implemented paragraph-aware color state machine for credits: empty lines reset `next_is_role`,
+ *    first non-empty line uses GOLD, subsequent lines use WHITE. `"AISLING"`, `"THE END"`, and
+ *    `"THANK YOU FOR PLAYING"` are special-cased.
+ * - Added `strcmp(game_context->story.day_folder, "day1") == 0` guard to the tutorial tooltip rendering.
+ * - Updated `DrawMap` call in `DrawGameplay` to pass `game_context->bear_trap_inside`.
+ * - Added speaker-aware typing effect in the dialogue box rendering.
  * 
  * Authors: Andrew Zhuo and Steven Kenneth Darwy
  */

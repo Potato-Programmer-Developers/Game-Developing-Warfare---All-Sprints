@@ -22,6 +22,16 @@
  * - 2026-04-10: Expanded `StoryPhase` phone data capacity from 8 to 32 messages. (Goal: Support the
  *                deeply nested branching conversation tree format introduced in Day 2 SET4-PHASE3,
  *                where indentation-driven message hierarchies create many message nodes in a flat array.)
+ * - 2026-05-02: Added ending sequence and scrolling credits system. (Goal: Support multi-ending
+ *                narrative conclusions with typed dialogue scenes, followed by a scrolling credits
+ *                sequence loaded from `credit.txt` with a dedicated credit music track and full
+ *                lifecycle management including save deletion and MAINMENU re-entry.)
+ * - 2026-05-02: Extended `CONDITION_ENTER_LOCATION` to support dual-location conditions. (Goal: Allow
+ *                a phase to be completed by entering one of two possible locations, enabling branching
+ *                story paths in Day 4 where the player can choose between the Forest or Farm ending.)
+ * - 2026-05-02: Added conditional quest loading via inline `| CONDITION` syntax. (Goal: Dynamically
+ *                show or hide quests based on the player's met-NPC history, so that Day 4 SET1-PHASE1
+ *                only shows the Saul quest if the player has met Saul on both Day 1 and a subsequent day.)
  * 
  * Revision Details:
  * - Added `StoryConditionType` enum entries for `CONDITION_DREAM_COMPLETE` and `CONDITION_AUTO_COMPLETE`.
@@ -37,6 +47,14 @@
  *    trees parsed from deeply nested `narration.txt` files.
  * - Expanded `StorySystem.phone_active_messages` from 8 to 32 entries to match the increased
  *    phase capacity during runtime phone playback.
+ * - Added `ending_file[128]` and `has_ending` fields to `StoryPhase` for ending sequence support.
+ * - Added ending sequence state to `StorySystem`: `ending_active`, `ending_show_credits`,
+ *    `ending_lines[80][256]`, `ending_line_count`, `ending_current_line`, `ending_typing_timer`,
+ *    `ending_typing_index`.
+ * - Added scrolling credits state to `StorySystem`: `ending_credits_lines[128][128]`,
+ *    `ending_credits_line_count`, `ending_credits_y`.
+ * - Added `target_value2` to `StoryCondition` for dual-location `ENTER_LOCATION` conditions.
+ * - Added `HandleEndingInput` and `TriggerEnding` function prototypes.
  * 
  * Authors: Andrew Zhuo
  */

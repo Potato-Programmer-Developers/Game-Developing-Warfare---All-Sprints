@@ -12,6 +12,17 @@
  *                box and allowing non-critical interactions to occur even if movement quests are pending.)
  * - 2026-04-05: Implemented "Met NPC" and "Pickup Registry" persistence. (Goal: Ensure that session 
  *                progress is correctly recorded in the GameContext for cross-day consistency.)
+ * - 2026-05-02: Fixed Day 3/4 quest completion bug caused by interaction tutorial logic. (Goal:
+ *                Prevent false quest completion on later days by adding a `day1` guard to the
+ *                interactable tutorial check.)
+ * - 2026-05-02: Fixed `RegisterMeetNPC` to allow per-day meeting records. (Goal: Enable meeting
+ *                the same NPC across different days by including the day number in the
+ *                deduplication check.)
+ * - 2026-05-02: Implemented dialogue-triggered endings via `[TRIGGER_ENDING]` tag. (Goal: Allow
+ *                dialogue nodes to transition the game into `ENDING_CUTSCENE` by specifying an
+ *                ending script file.)
+ * - 2026-05-02: Added `forest_road` door guard based on active quest. (Goal: Prevent sequence-breaking
+ *                by gating forest access behind the "Go to the forest and find Saul" quest.)
  * 
  * Revision Details:
  * - Refactored `CheckInteractable` to use a dynamic `playerHitbox` with a 40px radius around the player sprite.
@@ -19,6 +30,11 @@
  *    (like the Fridge) when earlier quests were incomplete.
  * - Fixed a string-comparison bug in `IsOtherQuestsPending` for "Explore" objectives.
  * - Added comprehensive Doxygen-style function headers for all internal static helpers.
+ * - Added `strcmp(game_context->story.day_folder, "day1") == 0` guard to the `SET1-PHASE1` tutorial
+ *    quest completion check in `UpdateStoryConditions`.
+ * - Updated `RegisterMeetNPC` to compare both NPC ID and day number, allowing for multi-day meeting tracking.
+ * - Added `trigger_ending_file` check in `InteractWithNPC` to construct the ending path and call `TriggerEnding`.
+ * - Added `forest_road` door guard in `InteractWithDoor` that validates the required forest quest is active.
  * 
  * Authors: Andrew Zhuo and Cornelius Jabez Lim
  */

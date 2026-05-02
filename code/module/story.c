@@ -36,6 +36,29 @@
  *                ambient horror sound effects inline during narration by matching `[PLAY]` tag values
  *                to named `Sound` handles in the `Audio` struct, enabling audio cues like door banging,
  *                window scraping, and chimney rustling at precise narrative moments.)
+ * - 2026-05-02: Implemented the ending sequence engine (`LoadEndingSequence`, `TriggerEnding`,
+ *                `HandleEndingInput`). (Goal: Parse ending scripts from text files in `Speaker: text`
+ *                format, display them as typed dialogue on a black screen, and transition to a scrolling
+ *                credits sequence with dedicated music upon completion.)
+ * - 2026-05-02: Implemented scrolling credits with dedicated credit music. (Goal: After the ending
+ *                dialogue concludes, load `credit.txt` line-by-line, initialize the scroll Y to the
+ *                bottom of the screen, stop background music, start credit music, and enforce SPACE
+ *                only after all text has scrolled off-screen.)
+ * - 2026-05-02: Added `SANITY` comparison support to `EvaluateCondition`. (Goal: Enable `[IF] SANITY > 50`
+ *                conditionals in `narration.txt` to gate narrative branches based on the player's current
+ *                sanity value.)
+ * - 2026-05-02: Added custom branching logic for Day 4 `SET1-PHASE1` in `AdvanceStory`. (Goal: Route
+ *                the player to SET2 (Saul/Forest ending) or SET3 (Farmer ending) based on their current
+ *                location when the phase ends, enabling the story to fork into multiple ending paths.)
+ * - 2026-05-02: Extended `CONDITION_ENTER_LOCATION` to support dual-location OR conditions. (Goal:
+ *                Allow Day 4 SET1-PHASE1 to end when the player enters either the Forest OR the Farm,
+ *                parsed from `[CONDITION] ENTER_LOCATION FOREST | FARM`.)
+ * - 2026-05-02: Added conditional quest parsing with `| CONDITION` syntax in `LoadStoryDay`. (Goal:
+ *                Dynamically include or exclude quests based on met-NPC history, so the Saul quest
+ *                only appears if the player met Saul on Day 1 and again on a later day.)
+ * - 2026-05-02: Added `CONDITION_NARRATION_COMPLETE` guard against `ending_active`. (Goal: Prevent
+ *                story advancement while an ending sequence is playing, ensuring the ending runs to
+ *                completion before the phase is considered done.)
  * 
  * Revision Details:
  * - Refactored `AdvanceStory` to support loading `dayX.txt` files dynamically via `LoadStoryDay`.
@@ -69,6 +92,25 @@
  *    true sequential siblings (auto-advance targets) and branch entry points (reached only via choice).
  * - Expanded the phone data copy loop in `HandleNarrationInput` from 8 to 32 to match the increased
  *    `StoryPhase.phone_messages` and `StorySystem.phone_active_messages` array capacities.
+ * - Created `LoadEndingSequence` static function that reads an ending script file relative to the
+ *    current set/phase directory, populating `ending_lines` and initializing typing effect state.
+ * - Created `TriggerEnding` public function for dialogue-triggered endings accepting an absolute path.
+ * - Created `HandleEndingInput` function implementing: typing effect progression, SPACE-to-skip typing,
+ *    SPACE-to-advance-line, credits loading from `credit.txt`, credit music swap, and MAINMENU return
+ *    with save deletion.
+ * - Added `StopMusicStream(credit_music)` and `PlayMusicStream(bg_music)` on SPACE return to main menu.
+ * - Gated credits SPACE handler behind `last_line_y < -50.0f` to prevent premature skipping.
+ * - Added `SANITY` case to `EvaluateCondition` supporting `>` and `<` operators against `player->sanity`.
+ * - Added `ending_active` check in `AllConditionsMet` for `CONDITION_NARRATION_COMPLETE`.
+ * - Added Day 4 `SET1-PHASE1` branching in `AdvanceStory` routing to SET2 (Forest) or SET3 (Farm).
+ * - Extended `ParseCondition` to handle `[CONDITION] ENTER_LOCATION LOC1 | LOC2` syntax with `target_value2`.
+ * - Added quest conditional parsing: `[QUEST] description | CONDITION` strips the condition, evaluates
+ *    met-NPC history, and only adds the quest if the condition is satisfied.
+ * - Updated `LoadStoryDay` signature to accept `GameContext*` for conditional quest evaluation.
+ * - Added `[TRIGGER_ENDING]` tag parsing in `LoadPhaseNarration`.
+ * - Added ending trigger logic in `UpdateStory` and `HandleNarrationInput` that calls
+ *    `LoadEndingSequence` when narration ends on a phase with `has_ending == true`.
+ * - Reset `has_ending` and `ending_file` at the start of `LoadPhaseNarration`.
  * 
  * Authors: Andrew Zhuo
  */

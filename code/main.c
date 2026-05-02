@@ -12,6 +12,14 @@
  * - 2026-04-07: Added `narration_has_started` Logic. (Goal: Synchronize the narrative 
  *                engine with the main game loop to prevent premature quest completion in 
  *                interactive phases.)
+ * - 2026-05-02: Added `ENDING_CUTSCENE` input handling in the main loop. (Goal: Route
+ *                `HandleEndingInput` when the game state is `ENDING_CUTSCENE`, enabling typed
+ *                dialogue progression and credits interaction.)
+ * - 2026-05-02: Prevented erroneous save-on-exit after credits. (Goal: Ensure that quitting
+ *                after reaching the end of the game does not re-save stale data, maintaining
+ *                a fresh "New Game" state on next launch.)
+ * - 2026-05-02: Updated `LoadStoryDay` call to pass `GameContext`. (Goal: Support conditional
+ *                quest loading that requires access to persistent game state.)
  * 
  * Revision Details:
  * - Refactored the main loop to support `NARRATION_CUTSCENE` as a blocking state.
@@ -22,6 +30,10 @@
  *    once the fade is settled and the UI is active.
  * - Optimized the call order of `UpdateStory` and `UpdatePhone` to ensure better 
  *    state transitions.
+ * - Added `if (*game_state == ENDING_CUTSCENE) HandleEndingInput(...)` block in `RunGame`.
+ * - Updated `EndGame` signature to accept `GameState game_state` and gated `SaveData` behind
+ *    `if (game_state != MAINMENU)`.
+ * - Updated all `LoadStoryDay` calls to pass the `game_context` pointer.
  * 
  * Authors: Andrew Zhuo, Cornelius Jabez Lim, Steven Kenneth Darwy
  */

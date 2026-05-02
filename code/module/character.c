@@ -8,12 +8,20 @@
  *                walking in all four cardinal directions.)
  * - 2026-04-05: Implemented stamina-based sprinting and recovery. (Goal: Balance movement 
  *                speed with resource management.)
+ * - 2026-05-02: Fixed Day 3/4 quest completion bug caused by WASD tutorial logic. (Goal:
+ *                Prevent instant quest completion on later days by adding a `day1` guard to the
+ *                movement tutorial check.)
+ * - 2026-05-02: Fixed idle animation to show correct frame based on direction. (Goal: Display
+ *                a static idle frame when movement stops, with a dedicated left-facing frame.)
  * 
  * Revision Details:
  * - Refactored `UpdateCharacter` to handle the `needs_shift_reset` flag for smoother sprinting UX.
  * - Expanded hitbox collision detection to be more forgiving for objects like the fridge.
  * - Integrated `PlayStep` sound triggers based on movement state and location (Interior vs Exterior).
  * - Fixed a frame-pacing bug in the `Character` animation counter.
+ * - Added `strcmp(story->day_folder, "day1") == 0` guard to the WASD tutorial completion check.
+ * - Refactored animation update: walk animation only advances when `is_moving` is true; otherwise,
+ *    `current_frame` is locked to a static idle index (frame 1 for left-facing, frame 0 for others).
  * 
  * Authors: Andrew Zhuo
  */

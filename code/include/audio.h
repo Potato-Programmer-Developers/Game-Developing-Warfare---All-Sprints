@@ -12,6 +12,9 @@
  *                dynamically triggered ambient horror sounds during the nightly interior narration sequence,
  *                including door banging, window scraping, and chimney rustling effects that are played
  *                inline via `[PLAY]` tags parsed from `narration.txt` files.)
+ * - 2026-05-02: Added `Music credit_music` stream to the `Audio` struct. (Goal: Support a dedicated
+ *                music track for the end-game credits sequence, separate from the main background
+ *                music loop.)
  * 
  * Revision Details:
  * - Added `Sound door_banging` to the `Audio` struct for the heavy door impact effect triggered
@@ -20,6 +23,8 @@
  *    "windows locked" narration path in SET4-PHASE2.
  * - Added `Sound chimney_rustling` for the low rustling/breathing effect triggered during the
  *    "fireplace on" narration path in SET4-PHASE2.
+ * - Added `Music credit_music` field to the `Audio` struct for streaming `credit.mp3` during
+ *    the scrolling credits screen.
  * 
  * Authors: Andrew Zhuo
  */
