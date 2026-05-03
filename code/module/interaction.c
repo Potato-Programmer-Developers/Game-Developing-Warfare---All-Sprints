@@ -634,24 +634,17 @@ void UpdateDay3Mowing(struct GameContext* game_context) {
     float mower_h = (float)player->lawnmower_item.height;
 
     // Compute lawnmower rect relative to player direction
+    // Fallback to horizontal positioning if moving vertically
+    int effective_dir = player->direction;
+    if (effective_dir == 0 || effective_dir == 3) effective_dir = player->last_horiz_dir;
+    
     Rectangle lawnmower_rect = {0, 0, mower_w, mower_h};
-    switch (player->direction) {
-        case 0: // down
-            lawnmower_rect.x = player->position.x + player->size.x / 2.0f - mower_w / 2.0f; 
-            lawnmower_rect.y = player->position.y + player->size.y; 
-            break; 
-        case 1: // left
-            lawnmower_rect.x = player->position.x - mower_w; 
-            lawnmower_rect.y = player->position.y + player->size.y - mower_h; 
-            break; 
-        case 2: // right
-            lawnmower_rect.x = player->position.x + player->size.x; 
-            lawnmower_rect.y = player->position.y + player->size.y - mower_h; 
-            break; 
-        case 3: // up
-            lawnmower_rect.x = player->position.x + player->size.x / 2.0f - mower_w / 2.0f; 
-            lawnmower_rect.y = player->position.y - mower_h; 
-            break; 
+    if (effective_dir == 1) { // left
+        lawnmower_rect.x = player->position.x - mower_w; 
+        lawnmower_rect.y = player->position.y + player->size.y - mower_h; 
+    } else { // right (effective_dir == 2)
+        lawnmower_rect.x = player->position.x + player->size.x; 
+        lawnmower_rect.y = player->position.y + player->size.y - mower_h; 
     }
     
     // Check collision with un-mowed brown grass

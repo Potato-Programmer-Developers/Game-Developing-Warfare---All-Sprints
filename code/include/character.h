@@ -75,6 +75,7 @@ typedef struct Character {
     char inventory[MAX_INVENTORY_SIZE][MAX_ITEM_NAME_LENGTH]; // Names of items currently held
     int item_count[MAX_INVENTORY_SIZE];                       // Quantities of each unique item
     int inventory_count;                                      // Total number of unique items in inventory
+    int last_horiz_dir;                                       // Tracks last horizontal direction for specialized animations (1=left, 2=right)
 } Character;
 
 /**

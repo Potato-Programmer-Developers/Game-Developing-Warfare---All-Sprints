@@ -555,11 +555,17 @@ void DrawGameplay(Scene* scene, Settings* game_settings, Interactive* game_inter
         // Special lawnmower mode drawing
         bool is_moving = IsKeyDown(KEY_W) || IsKeyDown(KEY_S) || IsKeyDown(KEY_A) || IsKeyDown(KEY_D);
         
+        // Determine effective visual direction (fallback to horizontal if moving vertically)
+        int effective_dir = player->direction;
+        if (effective_dir == 0 || effective_dir == 3) effective_dir = player->last_horiz_dir;
+        bool should_flip = (effective_dir == 1);
+
         // 1. Draw Character with special animation
         int char_frame = is_moving ? ((int)(GetTime() * 8) % 2) : 1;
         float char_tex_w = (float)player->lawnmower_mode.width;
         float char_tex_h = (float)player->lawnmower_mode.height;
-        Rectangle char_src = { (float)char_frame * (char_tex_w / 2.0f), 0, char_tex_w / 2.0f, char_tex_h };
+        float frame_w = char_tex_w / 2.0f;
+        Rectangle char_src = { (float)char_frame * frame_w, 0, should_flip ? -frame_w : frame_w, char_tex_h };
         Rectangle char_dest = { player->position.x, player->position.y, player->size.x, player->size.y };
         DrawTexturePro(player->lawnmower_mode, char_src, char_dest, (Vector2){0, 0}, 0.0f, WHITE);
 
@@ -567,29 +573,21 @@ void DrawGameplay(Scene* scene, Settings* game_settings, Interactive* game_inter
         int mower_frame = is_moving ? ((int)(GetTime() * 8) % 2) : 0;
         float mower_tex_w = (float)player->lawnmower_item.width;
         float mower_tex_h = (float)player->lawnmower_item.height;
-        Rectangle mower_src = { (float)mower_frame * (mower_tex_w / 2.0f), 0, mower_tex_w / 2.0f, mower_tex_h };
+        float mower_frame_w = mower_tex_w / 2.0f;
+        Rectangle mower_src = { (float)mower_frame * mower_frame_w, 0, should_flip ? -mower_frame_w : mower_frame_w, mower_tex_h };
         
-        float mower_w = mower_tex_w / 2.0f;
+        float mower_w = mower_frame_w;
         float mower_h = mower_tex_h;
         Rectangle lawnmower_rect = {0, 0, mower_w, mower_h};
-        switch (player->direction) {
-            case 0: // down
-                lawnmower_rect.x = player->position.x + player->size.x / 2.0f - mower_w / 2.0f; 
-                lawnmower_rect.y = player->position.y + player->size.y; 
-                break; 
-            case 1: // left
-                lawnmower_rect.x = player->position.x - mower_w; 
-                lawnmower_rect.y = player->position.y + player->size.y - mower_h; 
-                break; 
-            case 2: // right
-                lawnmower_rect.x = player->position.x + player->size.x; 
-                lawnmower_rect.y = player->position.y + player->size.y - mower_h; 
-                break;
-            case 3: // up
-                lawnmower_rect.x = player->position.x + player->size.x / 2.0f - mower_w / 2.0f; 
-                lawnmower_rect.y = player->position.y - mower_h; 
-                break;
-        }
+        
+        // Lawnmower is always on the side (left/right) in this mode
+        if (effective_dir == 1) { // left
+            lawnmower_rect.x = player->position.x - mower_w; 
+            lawnmower_rect.y = player->position.y + player->size.y - mower_h; 
+        } else { // right (effective_dir == 2)
+            lawnmower_rect.x = player->position.x + player->size.x; 
+            lawnmower_rect.y = player->position.y + player->size.y - mower_h; 
+        }     
         DrawTexturePro(player->lawnmower_item, mower_src, lawnmower_rect, (Vector2){0, 0}, 0.0f, WHITE);
     } else {
         DrawCharacter(player);

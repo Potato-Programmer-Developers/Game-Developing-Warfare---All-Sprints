@@ -80,8 +80,10 @@ Character InitCharacter(Settings* game_settings, Data* game_data, Map* game_map)
             character.item_count[i] = game_data->item_count[i];
         }
         character.sanity = game_data->sanity;
+        character.last_horiz_dir = (character.direction == 1) ? 1 : 2; // Restore from last known direction
     } else {
         character.position = game_map->spawn_position;
+        character.last_horiz_dir = 2; // Default to right
     }
     return character;
 }
@@ -95,8 +97,8 @@ void UpdateCharacter(Character *character, Settings *game_settings, Vector2 map_
     Vector2 movement = {0, 0};
     if (IsKeyDown(KEY_W)){movement.y -= 1; character->direction = 3;}
     if (IsKeyDown(KEY_S)){movement.y += 1; character->direction = 0;}
-    if (IsKeyDown(KEY_A)){movement.x -= 1; character->direction = 1;}
-    if (IsKeyDown(KEY_D)){movement.x += 1; character->direction = 2;}
+    if (IsKeyDown(KEY_A)){movement.x -= 1; character->direction = 1; character->last_horiz_dir = 1;}
+    if (IsKeyDown(KEY_D)){movement.x += 1; character->direction = 2; character->last_horiz_dir = 2;}
 
     // Handle story-specific movement logic
     StoryPhase* active = GetActivePhase(story);
