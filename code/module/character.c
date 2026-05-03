@@ -43,6 +43,8 @@ Character InitCharacter(Settings* game_settings, Data* game_data, Map* game_map)
     character.walk_up = LoadTexture("../assets/images/character/kane/kane_up.png");
     character.walk_left = LoadTexture("../assets/images/character/kane/kane_left.png");
     character.walk_right = LoadTexture("../assets/images/character/kane/kane_right.png");
+    character.lawnmower_mode = LoadTexture("../assets/images/character/kane/kane_lawnmower.png");
+    character.lawnmower_item = LoadTexture("../assets/images/character/kane/lawnmower.png");
     character.sprite = character.walk_down;
 
     // Initialize character properties
@@ -221,4 +223,6 @@ void CloseCharacter(Character *character){
     UnloadTexture(character->walk_up);
     UnloadTexture(character->walk_left);
     UnloadTexture(character->walk_right);
+    UnloadTexture(character->lawnmower_mode);
+    UnloadTexture(character->lawnmower_item);
 }

@@ -537,52 +537,62 @@ void DrawGameplay(Scene* scene, Settings* game_settings, Interactive* game_inter
         }
     }
 
-    DrawCharacter(player);
-
+    bool is_lawnmower_phase = false;
+    bool has_lawnmower = false;
     if (strcmp(game_context->story.day_folder, "day3") == 0) {
         StoryPhase* active_phase = GetActivePhase(&game_context->story);
         if (active_phase && strcmp(active_phase->name, "SET2-PHASE2") == 0) {
-            bool has_lawnmower = false;
-            Texture2D mower_texture = {0};
+            is_lawnmower_phase = true;
             for (int i = 0; i < game_context->picked_up_count; i++) {
                 if (strcmp(game_context->picked_up_registry[i], "lawnmower") == 0) {
                     has_lawnmower = true; break;
                 }
             }
-            if (has_lawnmower) {
-                for (int i = 0; i < game_context->itemCount; i++) {
-                    if (strcmp(worldItems[i].base.interactable_id, "lawnmower") == 0) {
-                        mower_texture = worldItems[i].base.texture; break;
-                    }
-                }
-                if (mower_texture.id != 0) {
-                    float mower_w = (float)mower_texture.width;
-                    float mower_h = (float)mower_texture.height;
-                    Rectangle lawnmower_rect = {0, 0, mower_w, mower_h};
-                    switch (player->direction) {
-                        case 0: // down
-                            lawnmower_rect.x = player->position.x + player->size.x / 2.0f - mower_w / 2.0f; 
-                            lawnmower_rect.y = player->position.y + player->size.y; 
-                            break; 
-                        case 1: // left
-                            lawnmower_rect.x = player->position.x - mower_w; 
-                            lawnmower_rect.y = player->position.y + player->size.y - mower_h; 
-                            break; 
-                        case 2: // right
-                            lawnmower_rect.x = player->position.x + player->size.x; 
-                            lawnmower_rect.y = player->position.y + player->size.y - mower_h; 
-                            break; 
-                        case 3: // up
-                            lawnmower_rect.x = player->position.x + player->size.x / 2.0f - mower_w / 2.0f; 
-                            lawnmower_rect.y = player->position.y - mower_h; 
-                            break; 
-                    }
-                    DrawTexturePro(mower_texture, 
-                        (Rectangle){0, 0, (float)mower_texture.width, (float)mower_texture.height},
-                        lawnmower_rect, (Vector2){0, 0}, 0.0f, WHITE);
-                }
-            }
         }
+    }
+
+    if (is_lawnmower_phase && has_lawnmower) {
+        // Special lawnmower mode drawing
+        bool is_moving = IsKeyDown(KEY_W) || IsKeyDown(KEY_S) || IsKeyDown(KEY_A) || IsKeyDown(KEY_D);
+        
+        // 1. Draw Character with special animation
+        int char_frame = is_moving ? ((int)(GetTime() * 8) % 2) : 1;
+        float char_tex_w = (float)player->lawnmower_mode.width;
+        float char_tex_h = (float)player->lawnmower_mode.height;
+        Rectangle char_src = { (float)char_frame * (char_tex_w / 2.0f), 0, char_tex_w / 2.0f, char_tex_h };
+        Rectangle char_dest = { player->position.x, player->position.y, player->size.x, player->size.y };
+        DrawTexturePro(player->lawnmower_mode, char_src, char_dest, (Vector2){0, 0}, 0.0f, WHITE);
+
+        // 2. Draw Lawnmower with animation
+        int mower_frame = is_moving ? ((int)(GetTime() * 8) % 2) : 0;
+        float mower_tex_w = (float)player->lawnmower_item.width;
+        float mower_tex_h = (float)player->lawnmower_item.height;
+        Rectangle mower_src = { (float)mower_frame * (mower_tex_w / 2.0f), 0, mower_tex_w / 2.0f, mower_tex_h };
+        
+        float mower_w = mower_tex_w / 2.0f;
+        float mower_h = mower_tex_h;
+        Rectangle lawnmower_rect = {0, 0, mower_w, mower_h};
+        switch (player->direction) {
+            case 0: // down
+                lawnmower_rect.x = player->position.x + player->size.x / 2.0f - mower_w / 2.0f; 
+                lawnmower_rect.y = player->position.y + player->size.y; 
+                break; 
+            case 1: // left
+                lawnmower_rect.x = player->position.x - mower_w; 
+                lawnmower_rect.y = player->position.y + player->size.y - mower_h; 
+                break; 
+            case 2: // right
+                lawnmower_rect.x = player->position.x + player->size.x; 
+                lawnmower_rect.y = player->position.y + player->size.y - mower_h; 
+                break;
+            case 3: // up
+                lawnmower_rect.x = player->position.x + player->size.x / 2.0f - mower_w / 2.0f; 
+                lawnmower_rect.y = player->position.y - mower_h; 
+                break;
+        }
+        DrawTexturePro(player->lawnmower_item, mower_src, lawnmower_rect, (Vector2){0, 0}, 0.0f, WHITE);
+    } else {
+        DrawCharacter(player);
     }
 
     // Draw interaction tooltips (on top of entities)

@@ -628,22 +628,13 @@ void UpdateDay3Mowing(struct GameContext* game_context) {
     }
     if (!has_lawnmower) return;
     
-    // Find lawnmower item to get texture size
-    float mower_w = 64.0f;
-    float mower_h = 64.0f;
-    for (int i = 0; i < game_context->itemCount; i++) {
-        if (strcmp(game_context->worldItems[i].base.interactable_id, "lawnmower") == 0) {
-            if (game_context->worldItems[i].base.texture.id != 0) {
-                mower_w = (float)game_context->worldItems[i].base.texture.width;
-                mower_h = (float)game_context->worldItems[i].base.texture.height;
-            }
-            break;
-        }
-    }
+    // Get mower dimensions from the animated texture (2 frames)
+    Character* player = game_context->player;
+    float mower_w = (float)player->lawnmower_item.width / 2.0f;
+    float mower_h = (float)player->lawnmower_item.height;
 
     // Compute lawnmower rect relative to player direction
     Rectangle lawnmower_rect = {0, 0, mower_w, mower_h};
-    Character* player = game_context->player;
     switch (player->direction) {
         case 0: // down
             lawnmower_rect.x = player->position.x + player->size.x / 2.0f - mower_w / 2.0f; 

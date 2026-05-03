@@ -47,6 +47,8 @@ typedef struct Character {
     Texture2D walk_up;                   // Texture for walking state
     Texture2D walk_left;                 // Texture for walking state
     Texture2D walk_right;                // Texture for walking state
+    Texture2D lawnmower_mode;            // Texture for character in lawnmower mode
+    Texture2D lawnmower_item;            // Texture for the animated lawnmower object itself
     Texture2D sprite;                    // Current active texture being drawn
     Vector2 position;                    // World coordinates of the player
     Vector2 size;                        // Visual size of the character
