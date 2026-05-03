@@ -149,7 +149,10 @@ void RunGame(Character *player, Audio *game_audio, Settings *game_settings,
             HandleNarrationInput(game_context, (int*)game_state, game_audio);
         }
                 
-        // Input Handling: Ending Sequence
+        // Input Handling: Opening/Ending Sequence
+        if (*game_state == OPENING_CUTSCENE) {
+            HandleOpeningInput(game_context, (int*)game_state, game_audio);
+        }
         if (*game_state == ENDING_CUTSCENE) {
             HandleEndingInput(game_context, (int*)game_state, game_audio);
         }

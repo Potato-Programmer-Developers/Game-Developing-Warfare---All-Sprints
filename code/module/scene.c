@@ -366,6 +366,24 @@ void DrawGame(Scene *game_scene, Settings *game_settings, Interactive *game_inte
         }
     }
 
+    // Draw Opening Sequence
+    if (*game_state == OPENING_CUTSCENE && game_context->story.opening_active) {
+        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), BLACK);
+        if (game_context->story.opening_current_line < game_context->story.opening_line_count) {
+            const char* full_line = game_context->story.opening_lines[game_context->story.opening_current_line];
+            int line_len = strlen(full_line);
+            int start_x = GetScreenWidth() / 2 - MeasureText(full_line, 20) / 2;
+            int start_y = GetScreenHeight() / 2 - 10;
+
+            const char* typed_line = TextSubtext(full_line, 0, game_context->story.opening_typing_index);
+            DrawText(typed_line, start_x, start_y, 20, WHITE);
+
+            if (game_context->story.opening_typing_index >= line_len) {
+                DrawText("Press 'SPACE' to continue", GetScreenWidth() / 2 - MeasureText("Press 'SPACE' to continue", 15) / 2, GetScreenHeight() - 60, 15, GRAY);
+            }
+        }
+    }
+
     // Draw Ending Sequence
     if (*game_state == ENDING_CUTSCENE && game_context->story.ending_active) {
         DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), BLACK);

@@ -183,7 +183,8 @@ int UpdateGame(GameState* game_state, struct Interactive* game_interactive, Char
             if (game_interactive->is_new_game_clicked){
                 ResetGameData(game_context, game_map->spawn_position);
                 LoadStoryDay(&game_context->story, "../assets/text/day1/day1.txt", game_context);
-                *game_state = GAMEPLAY;
+                TriggerOpening(&game_context->story, "../assets/text/day1/opening.txt");
+                *game_state = OPENING_CUTSCENE;
                 game_interactive->is_new_game_clicked = false;
                 StopMusicStream(game_audio->bg_music);
                 PlayMusicStream(game_audio->bg_music);
@@ -373,6 +374,9 @@ int UpdateGame(GameState* game_state, struct Interactive* game_interactive, Char
                 ClearCutscene(game_scene);
                 *game_state = GAMEPLAY; game_scene->current_cutscene_frame = 0;
             }
+            break;
+        case OPENING_CUTSCENE:
+            HideCursor();
             break;
         case ENDING_CUTSCENE:
             HideCursor();

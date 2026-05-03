@@ -212,6 +212,14 @@ typedef struct StorySystem {
     char current_scene[32];                 // Text for the current scene (e.g., "FLASHBACK")
     bool phone_pending;                     // Flag to start interactive phone sequence
 
+    // Opening sequence state
+    bool opening_active;                    // Is an opening sequence playing?
+    char opening_lines[20][256];            // Opening text lines
+    int opening_line_count;                 // Total opening lines
+    int opening_current_line;               // Currently displayed line index
+    float opening_typing_timer;             // Typing effect timer
+    int opening_typing_index;               // Typing effect character index
+
     // Ending sequence state
     bool ending_active;                     // Is an ending sequence playing?
     bool ending_show_credits;               // Show credits screen after ending
@@ -289,5 +297,22 @@ void LoadPhaseNarration(StoryPhase* phase, struct GameContext* game_context);
  * @param game_audio Pointer to the audio system for sound effects.
  */
 void HandleEndingInput(struct GameContext* game_context, int* game_state, struct Audio* game_audio);
+
+/**
+ * @brief Triggers an opening sequence from a file.
+ *
+ * @param story Pointer to the StorySystem.
+ * @param opening_file Name of the opening file to load.
+ */
+void TriggerOpening(StorySystem* story, const char* opening_file);
+
+/**
+ * @brief Handles player input during OPENING_CUTSCENE state.
+ *
+ * @param game_context Pointer to the GameContext.
+ * @param game_state Pointer to the current game state.
+ * @param game_audio Pointer to the audio system for sound effects.
+ */
+void HandleOpeningInput(struct GameContext* game_context, int* game_state, struct Audio* game_audio);
 
 #endif

@@ -1411,3 +1411,72 @@ void HandleEndingInput(struct GameContext* game_context, int* game_state, struct
         }
     }
 }
+
+void TriggerOpening(StorySystem* story, const char* opening_file) {
+    if (!story || !opening_file || strlen(opening_file) == 0) return;
+    
+    FILE* file = fopen(opening_file, "r");
+    if (!file) {
+        TraceLog(LOG_WARNING, "OPENING: Could not open opening file: %s", opening_file);
+        return;
+    }
+    
+    story->opening_line_count = 0;
+    char line[256];
+    while (fgets(line, sizeof(line), file) && story->opening_line_count < 20) {
+        char* end = line + strlen(line) - 1;
+        while (end >= line && (*end == '\n' || *end == '\r')) { *end = '\0'; end--; }
+        if (strlen(line) == 0) continue;
+        
+        strncpy(story->opening_lines[story->opening_line_count], line, 255);
+        story->opening_line_count++;
+    }
+    fclose(file);
+    
+    story->opening_active = true;
+    story->opening_current_line = 0;
+    story->opening_typing_timer = 0.0f;
+    story->opening_typing_index = 0;
+    
+    TraceLog(LOG_INFO, "OPENING: Triggered %d lines from %s", story->opening_line_count, opening_file);
+}
+
+void HandleOpeningInput(struct GameContext* game_context, int* game_state, struct Audio* game_audio) {
+    StorySystem* story = &game_context->story;
+    if (!story->opening_active) return;
+    
+    const char* current_text = NULL;
+    if (story->opening_current_line < story->opening_line_count) {
+        current_text = story->opening_lines[story->opening_current_line];
+    }
+    
+    int text_len = current_text ? strlen(current_text) : 0;
+    if (current_text && story->opening_typing_index < text_len) {
+        story->opening_typing_timer += GetFrameTime();
+        if (story->opening_typing_timer >= 0.03f) {
+            story->opening_typing_timer = 0.0f;
+            story->opening_typing_index++;
+            if (story->opening_typing_index >= text_len) {
+                if (game_audio && IsSoundPlaying(game_audio->typing_sound)) StopSound(game_audio->typing_sound);
+            } else if (game_audio && !IsSoundPlaying(game_audio->typing_sound)) {
+                PlaySound(game_audio->typing_sound);
+            }
+        }
+    }
+    
+    if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER)) {
+        if (story->opening_typing_index < text_len) {
+            story->opening_typing_index = text_len;
+            if (game_audio && IsSoundPlaying(game_audio->typing_sound)) StopSound(game_audio->typing_sound);
+        } else {
+            story->opening_current_line++;
+            story->opening_typing_index = 0;
+            story->opening_typing_timer = 0.0f;
+            
+            if (story->opening_current_line >= story->opening_line_count) {
+                story->opening_active = false;
+                *game_state = GAMEPLAY;
+            }
+        }
+    }
+}
