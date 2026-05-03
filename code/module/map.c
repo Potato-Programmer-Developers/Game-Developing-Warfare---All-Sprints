@@ -228,6 +228,12 @@ bool CheckMapCollision(Map* map, Rectangle rect, char picked_up_registry[][64], 
                 bool skip = false;
                 if (object->name.ptr && strlen(object->name.ptr) > 0) {
                     if (strstr(object->name.ptr, "brown_grass") != NULL) skip = true;
+                    
+                    // Skip spawning points
+                    if (strcmp(object->name.ptr, "Spawn") == 0 || 
+                        strcmp(object->name.ptr, "from_farm") == 0 || 
+                        strcmp(object->name.ptr, "initial") == 0) skip = true;
+
                     for (int i = 0; i < picked_up_count; i++) {
                         if (strcmp(picked_up_registry[i], object->name.ptr) == 0) {
                             skip = true;

@@ -322,20 +322,11 @@ void LoadInteraction(const char* filename, Dialogue* dialogue, struct GameContex
 
         int current_parent_idx = node_stack[stack_ptr - 1];
 
-        // 4. Fade Tag
-        if (strstr(line, "[FADE]")) {
-            char color[32], path[128], loc[32];
-            if (sscanf(strstr(line, "[FADE]"), "[FADE] %s %s %s", color, path, loc) == 3) {
-                strncpy(dialogue->nodes[current_parent_idx].fade_color, color, 31);
-                strncpy(dialogue->nodes[current_parent_idx].target_map, path, 127);
-                strncpy(dialogue->nodes[current_parent_idx].target_loc, loc, 31);
-            }
-        }
-        // 5. Phone Notification Tag
+        // 4. Phone Notification Tag
         if (strstr(line, "[PHONE]")) {
             dialogue->nodes[current_parent_idx].triggers_phone = true;
         }
-        // 6. Trigger Ending Tag
+        // 5. Trigger Ending Tag
         if (strstr(line, "[TRIGGER_ENDING]")) {
             char filename[64];
             if (sscanf(strstr(line, "[TRIGGER_ENDING]"), "[TRIGGER_ENDING] %s", filename) == 1) {

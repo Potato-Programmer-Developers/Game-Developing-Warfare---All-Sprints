@@ -124,7 +124,26 @@ int UpdateGame(GameState* game_state, struct Interactive* game_interactive, Char
         
         bool is_new_map = (strcmp(game_map->current_path, game_scene->pending_map) != 0);
         FreeMap(game_map);
-        *game_map = InitMap(game_scene->pending_map, game_scene->pending_spawn_id);
+        
+        // Special case: Day 1 SET2-PHASE1 EXTERIOR map spawn
+        const char* spawn_id = game_scene->pending_spawn_id;
+        if (strcmp(game_context->story.day_folder, "day1") == 0 && 
+            game_context->story.current_set_idx == 1 && 
+            game_context->story.current_phase_idx == 0 &&
+            strstr(game_scene->pending_map, "map_ext/MAINMAP.json")) {
+            if (spawn_id[0] == '\0' || strcmp(spawn_id, "Spawn") == 0) {
+                spawn_id = "initial";
+            }
+        }
+
+        // Special case: From FARM to EXTERIOR
+        if (game_context->location == FARM && targetLoc == EXTERIOR) {
+            if (spawn_id[0] == '\0' || strcmp(spawn_id, "Spawn") == 0) {
+                spawn_id = "from_farm";
+            }
+        }
+
+        *game_map = InitMap(game_scene->pending_map, spawn_id);
         player->position = game_map->spawn_position;
         game_context->location = targetLoc;
 
