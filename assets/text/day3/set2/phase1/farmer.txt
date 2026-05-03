@@ -12,10 +12,10 @@
 
 [CHOICE1] I kept the house safe the first time, didn't think it would be a problem now.
     [KARMA] +
-    [RESPONSE] Well.. at least you kept the house safe. Here, this bear trap should deal with it.\nYou should get to work, today’s easy, just mow the brown grass.
+    [RESPONSE] Well.. at least you kept the house safe. Here, this bear trap should deal with it.\nYou should get to work, today's easy, just mow the brown grass.
 [CHOICE2] It's been making a mess of the house.
     [KARMA] -
-    [RESPONSE] What do I even pay you for? Here, this bear trap should deal with it.\nYou should get to work, today’s easy, just mow the brown grass.
+    [RESPONSE] What do I even pay you for? Here, this bear trap should deal with it.\nYou should get to work, today's easy, just mow the brown grass.
 [CHOICE3] I need something to deal with it.
     [KARMA] ++
-    [RESPONSE] Straight to the point, I like your style, kid. Here, this bear trap should deal with it.\nYou should get to work, today’s easy, just mow the brown grass.
+    [RESPONSE] Straight to the point, I like your style, kid. Here, this bear trap should deal with it.\nYou should get to work, today's easy, just mow the brown grass.

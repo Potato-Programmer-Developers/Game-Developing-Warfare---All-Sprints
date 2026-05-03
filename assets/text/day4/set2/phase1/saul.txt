@@ -1,4 +1,4 @@
-[CHOICE1] Saul… are we safe here?
+[CHOICE1] Saul.. are we safe here?
     Saul: Yeah... we're safe here.
     Saul: I need to get to the bottom of this.
     Saul: Why is it chasing you?

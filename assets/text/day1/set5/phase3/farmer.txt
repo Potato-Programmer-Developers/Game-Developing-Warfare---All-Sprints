@@ -1,12 +1,12 @@
 [IF] CORRECT LOGS == 15
-    [RESPONSE] Not bad kid, go ahead home and watch the house for me, I’ll get your logs there.
+    [RESPONSE] Not bad kid, go ahead home and watch the house for me, I'll get your logs there.
     [KARMA] ++
     [FADE] BLACK ../assets/map/map_ext/MAINMAP.json EXTERIOR
 [ELSE IF] CORRECT LOGS > 10 AND CORRECT LOGS < 15
-    [RESPONSE] You did alright, go ahead home and watch the house for me, I’ll get your logs there.
+    [RESPONSE] You did alright, go ahead home and watch the house for me, I'll get your logs there.
     [KARMA] +
     [FADE] BLACK ../assets/map/map_ext/MAINMAP.json EXTERIOR
 [ELSE]
-    [RESPONSE] You’re hopeless kid, go home. I’ll get your logs.
+    [RESPONSE] You're hopeless kid, go home. I'll get your logs.
     [KARMA] -
     [FADE] BLACK ../assets/map/map_ext/MAINMAP.json EXTERIOR

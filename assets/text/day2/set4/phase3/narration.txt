@@ -2,7 +2,7 @@
     [MESSAGE] I'm coming for you.
         [CHOICE] Who are you??
             [MESSAGE] Have you already forgotten?
-            [CHOICE] I didn’t forget shit buddy.
+            [CHOICE] I didn't forget shit buddy.
                 [MESSAGE] Good. May the memory of his misery\nbe burned into your retinas as I\ntake your sight away.
             [CHOICE] Huh?
                 [MESSAGE] What will you do? Are you going to\nremember? Or are you going to\nforget?

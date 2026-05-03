@@ -30,11 +30,11 @@
             [CHOICE3] Where'd it go?
                 [RESPONSE] I'll keep a lookout. If I see anything else I'll tell you. You should take a rest.
                 [SANITY] ++
-        [CHOICE2] Now you’re the schizo!
-            [RESPONSE] I didn’t wanna tell you since I wasn’t sure!
+        [CHOICE2] Now you're the schizo!
+            [RESPONSE] I didn't wanna tell you since I wasn't sure!
             [SANITY] +
             [CHOICE1] I don't believe you
-                [RESPONSE] It’s fine.. You should take a rest.. I shouldn't have said anything.
+                [RESPONSE] It's fine.. You should take a rest.. I shouldn't have said anything.
                 [SANITY] -
             [CHOICE2] I believe you
                 [RESPONSE] I'm not sure if it was real though. You should take a rest. I shouldn't have said anything.
@@ -43,5 +43,5 @@
                 [RESPONSE] I'll keep a lookout. If I see anything else I'll tell you. You should take a rest.
                 [SANITY] ++
         [CHOICE3] They're coming for me.
-            [RESPONSE] Woah dude, chill out, I’m not even sure if I was seeing things right.\nYou should calm down and take a rest. I shouldn't have said anything.
+            [RESPONSE] Woah dude, chill out, I'm not even sure if I was seeing things right.\nYou should calm down and take a rest. I shouldn't have said anything.
             [SANITY] -

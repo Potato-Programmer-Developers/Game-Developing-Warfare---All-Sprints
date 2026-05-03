@@ -1,23 +1,23 @@
 [CHOICE1] Good morning!
     [RESPONSE] Morning.
-[CHOICE2] Let’s get to work!
-    [RESPONSE] Finally, that’s what I like to hear.
+[CHOICE2] Let's get to work!
+    [RESPONSE] Finally, that's what I like to hear.
     [KARMA] +
 [CHOICE3] Morning, pops!
-    [RESPONSE] Don’t call me pops, kid.
+    [RESPONSE] Don't call me pops, kid.
     [KARMA] -
 
-[CHOICE1] What’s for work today?
+[CHOICE1] What's for work today?
     [RESPONSE] Plant these seeds into the pots. Red for lettuce, green for tomatoes, orange for potatoes.
     [KARMA] +
 [CHOICE2] I gotta ask you something.
     [RESPONSE] Hmm? It better be about work.
     [CHOICE1] Were you walking around the house grounds last night?
-        [RESPONSE] No, that wasn’t me. Just plant these seeds into the pots.\nRed for lettuce, green for tomatoes, orange for potatoes. 
+        [RESPONSE] No, that wasn't me. Just plant these seeds into the pots.\nRed for lettuce, green for tomatoes, orange for potatoes. 
     [CHOICE2] Are the squirrels here active at night?
-        [RESPONSE] No, I don’t know. Im a farmer not a squirrel-er. Just plant these seeds into the pots.\nRed for lettuce, green for tomatoes, orange for potatoes.
-    [CHOICE3] Who’s Saul? (unable to choose this if the player didn’t talk to saul earlier)
-        [RESPONSE] Who the f*ck is Saul? You’re a schizo kid. Forget about it and just plant these seeds into the pots.\nRed for lettuce, green for tomatoes, orange for potatoes.
+        [RESPONSE] No, I don't know. I'm a farmer not a squirrel-er. Just plant these seeds into the pots.\nRed for lettuce, green for tomatoes, orange for potatoes.
+    [CHOICE3] Who's Saul? (unable to choose this if the player didn't talk to saul earlier)
+        [RESPONSE] Who the f*ck is Saul? You're a schizo kid. Forget about it and just plant these seeds into the pots.\nRed for lettuce, green for tomatoes, orange for potatoes.
 [CHOICE3] Were you out snooping last night?
     [RESPONSE] Do I look like a snooper to ya?? Just plant these seeds into the pots.\nRed for lettuce, green for tomatoes, orange for potatoes. 
     [KARMA] -

@@ -1,4 +1,4 @@
-[IF] CORRECT PLANTED == 15
+[IF] CORRECT PLANTED == 18
     [RESPONSE] You should take over once I retire. Go home and get some rest.
     [KARMA] ++
     [FADE] BLACK ../assets/map/map_ext/MAINMAP.json EXTERIOR
@@ -7,6 +7,6 @@
     [KARMA] +
     [FADE] BLACK ../assets/map/map_ext/MAINMAP.json EXTERIOR
 [ELSE]
-    [RESPONSE] You’re hopeless kid, go home.
+    [RESPONSE] You're hopeless kid, go home.
     [KARMA] -
     [FADE] BLACK ../assets/map/map_ext/MAINMAP.json EXTERIOR
