@@ -27,6 +27,9 @@
  * - 2026-05-02: Changed implicit line parsing to auto-set `is_conversation = true`. (Goal: Lines
  *                without explicit tags are now treated as conversation responses automatically,
  *                simplifying dialogue file authoring.)
+ * - 2026-05-03: Implemented `[PHOTO]` tag parsing and `[IF] SANITY` conditional branching. 
+ *                (Goal: Support narrative-driven photo overlays and sanity-gated narrative 
+ *                branches in dialogue and narration scripts.)
  * 
  * Revision Details:
  * - Added a recursive-like stack parser in `LoadInteraction` to handle multi-level indentation.
@@ -48,6 +51,9 @@
  * - Expanded `response_count` bounds check from `r_idx < 10` to `r_idx < 32` in both `[RESPONSE]`
  *    and implicit line parsing blocks.
  * - Changed implicit line parsing (`else if (line[0] != '[')`) to set `is_conversation = true`.
+ * - Added `[PHOTO] <filename>` tag parsing in `LoadInteraction` to store triggers in nodes.
+ * - Implemented `[IF] SANITY`, `[ELSE IF] SANITY`, and `[ELSE]` block parsing with support 
+ *    for `>`, `<`, and `==` comparisons against the player's sanity value.
  * 
  * Authors: Andrew Zhuo and Cornelius Jabez Lim
  */

@@ -20,6 +20,8 @@
  *                a fresh "New Game" state on next launch.)
  * - 2026-05-02: Updated `LoadStoryDay` call to pass `GameContext`. (Goal: Support conditional
  *                quest loading that requires access to persistent game state.)
+ * - 2026-05-03: Synchronized global `UpdatePhone` and photo overlay timers. (Goal: Ensure 
+ *                consistent UI timing across all narrative cutscenes.)
  * 
  * Revision Details:
  * - Refactored the main loop to support `NARRATION_CUTSCENE` as a blocking state.
@@ -34,6 +36,8 @@
  * - Updated `EndGame` signature to accept `GameState game_state` and gated `SaveData` behind
  *    `if (game_state != MAINMENU)`.
  * - Updated all `LoadStoryDay` calls to pass the `game_context` pointer.
+ * - Optimized the call order of `UpdateStory` and `UpdatePhone` to ensure better 
+ *    state transitions and global timer synchronization.
  * 
  * Authors: Andrew Zhuo, Cornelius Jabez Lim, Steven Kenneth Darwy
  */
@@ -192,8 +196,6 @@ void RunGame(Character *player, Audio *game_audio, Settings *game_settings,
         DrawGame(game_scene, game_settings, game_interactive, game_map, player,
             game_dialogue, game_context, game_state, game_context->worldNPCs,
             game_context->worldItems);
-
-        TraceLog(LOG_WARNING, "%f", player->sanity);
     }
 }
 

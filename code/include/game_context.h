@@ -9,12 +9,17 @@
  *                persistence for item collection and NPC encounters.)
  * - 2026-04-05: Integrated the `StorySystem` and `Phone` modules into the context. (Goal: 
  *                Enable cross-module communication for narrative-driven triggers.)
+ * - 2026-05-03: Added photo overlay state fields and `mike_cutscene_active` flag. (Goal: Support 
+ *                narrative-driven image popups and the Mike cinematic sequence.)
  * 
  * Revision Details:
  * - Added `previous_state` and `settings_previous_state` for robust pause-menu navigation.
  * - Expanded the context to hold a pointer to the global `Scene` for camera/fade controls.
  * - Implemented `dream_lines` and `dream_count` for nocturnal event string storage.
  * - Added `left_box_big`, `left_box_small`, etc., for specific interaction mechanics in SET5.
+ * - Added `Texture2D photo_overlay`, `bool photo_overlay_active`, and `float photo_overlay_timer`
+ *    to the `GameContext` struct for managing narrative image popups.
+ * - Added `bool mike_cutscene_active` to `GameContext` to gate camera behavior.
  * 
  * Authors: Andrew Zhuo
  */

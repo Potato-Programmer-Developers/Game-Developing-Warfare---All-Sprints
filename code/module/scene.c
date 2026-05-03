@@ -22,6 +22,8 @@
  * - 2026-05-02: Added dialogue box typing effect with speaker-aware coloring. (Goal: Display
  *                dialogue text with a typewriter effect that correctly colors the speaker name in
  *                GOLD and dialogue text in WHITE.)
+ * - 2026-05-03: Implemented Mike cutscene scaling and centered photo overlay rendering. (Goal: 
+ *                Ensure Mike's sprite matches his Tiled map object size and support narrative photos.)
  * 
  * Revision Details:
  * - Refactored `DrawGame` to include conditional rendering for `NARRATION_CUTSCENE` and `PHONE` overlays.
@@ -40,6 +42,9 @@
  * - Added `strcmp(game_context->story.day_folder, "day1") == 0` guard to the tutorial tooltip rendering.
  * - Updated `DrawMap` call in `DrawGameplay` to pass `game_context->bear_trap_inside`.
  * - Added speaker-aware typing effect in the dialogue box rendering.
+ * - Added photo overlay rendering block in `DrawGame` using `DrawTexturePro` for scaling.
+ * - Implemented a semi-transparent black backdrop and `DrawRectangleLinesEx` for a sleek UI look.
+ * - Updated `DrawGame` to render Mike using Tiled-specific width/height instead of default frames.
  * 
  * Authors: Andrew Zhuo and Steven Kenneth Darwy
  */

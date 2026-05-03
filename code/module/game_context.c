@@ -1,7 +1,18 @@
 /**
  * @file game_context.c
  * @brief Implementation of global game state and camera orchestration.
- *
+ * 
+ * Update History:
+ * - 2026-03-20: Initial camera and context logic. (Goal: Support basic 2D camera tracking.)
+ * - 2026-05-03: Added photo overlay state initialization and Mike cutscene camera logic. 
+ *                (Goal: Support the Mike cinematic sequence with dedicated camera clamping.)
+ * 
+ * Revision Details:
+ * - Updated `UpdateGameContext` to implement strict camera clamping during the Mike cutscene,
+ *    preventing the camera from moving outside map boundaries while following Mike.
+ * - Updated `UpdateGameContext` to handle camera offset logic (photo timer logic moved to `state.c`).
+ * - Updated `InitGameContext` to zero-initialize the `photo_overlay` structure via `memset`.
+ * 
  * Authors: Andrew Zhuo
  */
 

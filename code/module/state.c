@@ -24,6 +24,8 @@
  * - 2026-05-02: Added Forest map transition support and MAINMENU layout refresh. (Goal: Enable
  *                narrative routing to the forest map and ensure UI hitboxes refresh when returning
  *                to the main menu after credits.)
+ * - 2026-05-03: Refactored photo overlay timing and implemented Mike cutscene logic. (Goal: 
+ *                Support the Mike cinematic sequence with scripted NPC movement and camera following.)
  * 
  * Revision Details:
  * - Implemented a global fade update hook in `UpdateGame` to manage asynchronous map transitions.
@@ -52,6 +54,10 @@
  * - Added `FOREST` location support in the phase-transition routing to `map_forest/forest.json`.
  * - Implemented an `UpdateInteractiveLayout` trigger upon entering `MAINMENU` state to ensure
  *    button hitboxes align with the current save-availability state (e.g., after credits delete save).
+ * - Added explicit `photo_overlay` cleanup in the map transition block to prevent visual carryover.
+ * - Implemented Mike NPC movement and camera-follow logic in `UpdateGame`.
+ * - Added `mike_cutscene_active` flag handling to manage cutscene start/end and camera control.
+ * - Moved photo overlay timer update to global `UpdateGame` to run regardless of state.
  * 
  * Authors: Andrew Zhuo and Steven Kenneth Darwy
  */

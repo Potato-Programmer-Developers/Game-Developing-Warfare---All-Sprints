@@ -23,6 +23,8 @@
  *                ending script file.)
  * - 2026-05-02: Added `forest_road` door guard based on active quest. (Goal: Prevent sequence-breaking
  *                by gating forest access behind the "Go to the forest and find Saul" quest.)
+ * - 2026-05-03: Added support for `[PHOTO]` tag triggers in `ApplyNodeSideEffects`. 
+ *                (Goal: Link narrative events to temporary visual photo overlays.)
  * 
  * Revision Details:
  * - Refactored `CheckInteractable` to use a dynamic `playerHitbox` with a 40px radius around the player sprite.
@@ -35,9 +37,12 @@
  * - Updated `RegisterMeetNPC` to compare both NPC ID and day number, allowing for multi-day meeting tracking.
  * - Added `trigger_ending_file` check in `InteractWithNPC` to construct the ending path and call `TriggerEnding`.
  * - Added `forest_road` door guard in `InteractWithDoor` that validates the required forest quest is active.
+ * - Updated `ApplyNodeSideEffects` to detect `photo_trigger` filenames and load them into 
+ *    `game_context->photo_overlay` with a 5-second auto-hide timer.
  * 
  * Authors: Andrew Zhuo and Cornelius Jabez Lim
  */
+ 
 #include "interaction.h"
 #include <string.h>
 #include <stdio.h>

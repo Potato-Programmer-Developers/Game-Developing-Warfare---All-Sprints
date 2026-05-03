@@ -59,6 +59,8 @@
  * - 2026-05-02: Added `CONDITION_NARRATION_COMPLETE` guard against `ending_active`. (Goal: Prevent
  *                story advancement while an ending sequence is playing, ensuring the ending runs to
  *                completion before the phase is considered done.)
+ * - 2026-05-03: Fixed ending photo path resolution and name extraction. (Goal: Ensure that 
+ *                photos correctly load for all endings, including those triggered by phase completion.)
  * 
  * Revision Details:
  * - Refactored `AdvanceStory` to support loading `dayX.txt` files dynamically via `LoadStoryDay`.
@@ -111,10 +113,14 @@
  * - Added ending trigger logic in `UpdateStory` and `HandleNarrationInput` that calls
  *    `LoadEndingSequence` when narration ends on a phase with `has_ending == true`.
  * - Reset `has_ending` and `ending_file` at the start of `LoadPhaseNarration`.
+ * - Updated `LoadEndingSequence` to extract the ending name from the filename using 
+ *    `GetFileNameWithoutExt` and store it in `current_ending_name`.
+ * - Synchronized `TriggerEnding` to use the same name-extraction logic for consistency.
+ * - Added `ending_photo_active` initialization to `LoadEndingSequence` to prevent visual bugs.
  * 
  * Authors: Andrew Zhuo
  */
-
+ 
 #include "story.h"
 #include "scene.h"
 #include "game_context.h"

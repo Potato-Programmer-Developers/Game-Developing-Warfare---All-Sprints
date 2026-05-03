@@ -10,6 +10,8 @@
  * - 2026-05-02: Added `trigger_ending_file` field and expanded response capacity. (Goal: Support
  *                dialogue-triggered endings and longer Day 3/4 NPC conversations that exceed the
  *                previous 10-line response limit.)
+ * - 2026-05-03: Added `photo_trigger` to `DialogueNode`. (Goal: Support narrative-driven 
+ *                visual overlays triggered by [PHOTO] tags in dialogue files.)
  * 
  * Revision Details:
  * - Expanded `DialogueNode` to include a boolean flag for phone-triggering.
@@ -18,6 +20,7 @@
  *    parsed from `[TRIGGER_ENDING]` tags in dialogue files.
  * - Expanded `responses` array from 10 to 32 entries and `response_once` from 10 to 32 entries
  *    to accommodate longer NPC conversations in Day 3 and Day 4.
+ * - Added `char photo_trigger[64]` to the `DialogueNode` struct for storing asset filenames.
  * 
  * Authors: Andrew Zhuo and Cornelius Jabez Lim
  */
