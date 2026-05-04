@@ -25,7 +25,6 @@ typedef struct Settings {
     float max_stamina;                   // Total stamina capacity
     float stamina_depletion_rate;        // Amount of stamina lost per second of running
     float stamina_recovery_rate;         // Amount of stamina gained per second of idling
-    float hallucination_increase_rate;   // Rate of automatic hallucination growth
 } Settings;
 
 /**

@@ -8,12 +8,20 @@
  *                walking in all four cardinal directions.)
  * - 2026-04-05: Implemented stamina-based sprinting and recovery. (Goal: Balance movement 
  *                speed with resource management.)
+ * - 2026-05-02: Fixed Day 3/4 quest completion bug caused by WASD tutorial logic. (Goal:
+ *                Prevent instant quest completion on later days by adding a `day1` guard to the
+ *                movement tutorial check.)
+ * - 2026-05-02: Fixed idle animation to show correct frame based on direction. (Goal: Display
+ *                a static idle frame when movement stops, with a dedicated left-facing frame.)
  * 
  * Revision Details:
  * - Refactored `UpdateCharacter` to handle the `needs_shift_reset` flag for smoother sprinting UX.
  * - Expanded hitbox collision detection to be more forgiving for objects like the fridge.
  * - Integrated `PlayStep` sound triggers based on movement state and location (Interior vs Exterior).
  * - Fixed a frame-pacing bug in the `Character` animation counter.
+ * - Added `strcmp(story->day_folder, "day1") == 0` guard to the WASD tutorial completion check.
+ * - Refactored animation update: walk animation only advances when `is_moving` is true; otherwise,
+ *    `current_frame` is locked to a static idle index (frame 1 for left-facing, frame 0 for others).
  * 
  * Authors: Andrew Zhuo
  */
@@ -35,10 +43,12 @@ Character InitCharacter(Settings* game_settings, Data* game_data, Map* game_map)
     character.walk_up = LoadTexture("../assets/images/character/kane/kane_up.png");
     character.walk_left = LoadTexture("../assets/images/character/kane/kane_left.png");
     character.walk_right = LoadTexture("../assets/images/character/kane/kane_right.png");
+    character.lawnmower_mode = LoadTexture("../assets/images/character/kane/kane_lawnmower.png");
+    character.lawnmower_item = LoadTexture("../assets/images/character/kane/lawnmower.png");
     character.sprite = character.walk_down;
 
     // Initialize character properties
-    character.size = (Vector2){80.0f, 175.0f};
+    character.size = (Vector2){90.0f, 150.0f};
     character.speed = game_settings->mc_speed;
     character.direction = 0; 
 
@@ -56,10 +66,11 @@ Character InitCharacter(Settings* game_settings, Data* game_data, Map* game_map)
     // Initialize character stats
     character.stamina = 100.0f;
     character.max_stamina = 100.0f;
-    character.sanity = 0.0f;
+    character.sanity = 100.0f;
     character.max_sanity = 100.0f;
     character.exhausted = false;
     character.needs_shift_reset = false;
+    character.can_move = true;
 
     if (game_data->position.x != -1.0f){
         character.position = game_data->position;
@@ -70,8 +81,10 @@ Character InitCharacter(Settings* game_settings, Data* game_data, Map* game_map)
             character.item_count[i] = game_data->item_count[i];
         }
         character.sanity = game_data->sanity;
+        character.last_horiz_dir = (character.direction == 1) ? 1 : 2; // Restore from last known direction
     } else {
         character.position = game_map->spawn_position;
+        character.last_horiz_dir = 2; // Default to right
     }
     return character;
 }
@@ -83,14 +96,16 @@ void UpdateCharacter(Character *character, Settings *game_settings, Vector2 map_
 
     // Handle movement input
     Vector2 movement = {0, 0};
-    if (IsKeyDown(KEY_W)){movement.y -= 1; character->direction = 3;}
-    if (IsKeyDown(KEY_S)){movement.y += 1; character->direction = 0;}
-    if (IsKeyDown(KEY_A)){movement.x -= 1; character->direction = 1;}
-    if (IsKeyDown(KEY_D)){movement.x += 1; character->direction = 2;}
+    if (character->can_move) {
+        if (IsKeyDown(KEY_W)){movement.y -= 1; character->direction = 3;}
+        if (IsKeyDown(KEY_S)){movement.y += 1; character->direction = 0;}
+        if (IsKeyDown(KEY_A)){movement.x -= 1; character->direction = 1; character->last_horiz_dir = 1;}
+        if (IsKeyDown(KEY_D)){movement.x += 1; character->direction = 2; character->last_horiz_dir = 2;}
+    }
 
     // Handle story-specific movement logic
     StoryPhase* active = GetActivePhase(story);
-    if (active && strcmp(active->name, "SET1-PHASE1") == 0){
+    if (active && strcmp(active->name, "SET1-PHASE1") == 0 && strcmp(story->day_folder, "day1") == 0){
         static bool w = false, a = false, s = false, d = false;
         if (IsKeyDown(KEY_W)) w = true;
         if (IsKeyDown(KEY_A)) a = true;
@@ -142,6 +157,7 @@ void UpdateCharacter(Character *character, Settings *game_settings, Vector2 map_
 
     // Handle movement and collision
     if (is_moving){
+        bool day2_active = (strcmp(story->day_folder, "day2") == 0);
         movement = Vector2Normalize(movement);
         float next_x = character->position.x + movement.x * character->speed * GetFrameTime();
         float next_y = character->position.y + movement.y * character->speed * GetFrameTime();
@@ -149,9 +165,12 @@ void UpdateCharacter(Character *character, Settings *game_settings, Vector2 map_
         // X collision check
         bool collision_x = false;
         Rectangle collision_rect_x = {next_x, character->position.y, character->size.x, character->size.y};
-        if (CheckMapCollision(map, collision_rect_x, picked_up_registry, picked_up_count)) collision_x = true;
-        for (int i = 0; i < itemCount; i++) if (!items[i].picked_up && CheckCollisionRecs(collision_rect_x, items[i].base.bounds)) { collision_x = true; break; }
-        for (int i = 0; i < npcCount; i++) if (CheckCollisionRecs(collision_rect_x, npcs[i].base.bounds)) { collision_x = true; break; }
+        if (CheckMapCollision(map, collision_rect_x, picked_up_registry, picked_up_count, day2_active)) collision_x = true;
+        for (int i = 0; i < itemCount; i++) if (!items[i].picked_up && !items[i].no_collision && CheckCollisionRecs(collision_rect_x, items[i].base.bounds)) { collision_x = true; break; }
+        for (int i = 0; i < npcCount; i++) {
+            if (strcmp(npcs[i].base.interactable_id, "mike") == 0) continue;
+            if (CheckCollisionRecs(collision_rect_x, npcs[i].base.bounds)) { collision_x = true; break; }
+        }
         for (int i = 0; i < doorCount; i++) if (CheckCollisionRecs(collision_rect_x, doors[i].base.bounds)) { collision_x = true; break; }
 
         if (next_x >= 0 && next_x + character->size.x <= map_size.x && !collision_x) character->position.x = next_x;
@@ -159,20 +178,29 @@ void UpdateCharacter(Character *character, Settings *game_settings, Vector2 map_
         // Y collision check
         bool collision_y = false;
         Rectangle collision_rect_y = {character->position.x, next_y, character->size.x, character->size.y};
-        if (CheckMapCollision(map, collision_rect_y, picked_up_registry, picked_up_count)) collision_y = true;
-        for (int i = 0; i < itemCount; i++) if (!items[i].picked_up && CheckCollisionRecs(collision_rect_y, items[i].base.bounds)) { collision_y = true; break; }
-        for (int i = 0; i < npcCount; i++) if (CheckCollisionRecs(collision_rect_y, npcs[i].base.bounds)) { collision_y = true; break; }
+        if (CheckMapCollision(map, collision_rect_y, picked_up_registry, picked_up_count, day2_active)) collision_y = true;
+        for (int i = 0; i < itemCount; i++) if (!items[i].picked_up && !items[i].no_collision && CheckCollisionRecs(collision_rect_y, items[i].base.bounds)) { collision_y = true; break; }
+        for (int i = 0; i < npcCount; i++) {
+            if (strcmp(npcs[i].base.interactable_id, "mike") == 0) continue;
+            if (CheckCollisionRecs(collision_rect_y, npcs[i].base.bounds)) { collision_y = true; break; }
+        }
         for (int i = 0; i < doorCount; i++) if (CheckCollisionRecs(collision_rect_y, doors[i].base.bounds)) { collision_y = true; break; }
 
         if (next_y >= 0 && next_y + character->size.y <= map_size.y && !collision_y) character->position.y = next_y;
     }
 
     // Update animation frame
-    character->frame_counter++;
-    if (character->frame_counter >= (60 / character->frame_speed)){
+    if (is_moving) {
+        character->frame_counter++;
+        if (character->frame_counter >= (60 / character->frame_speed)){
+            character->frame_counter = 0;
+            character->current_frame++;
+            if (character->current_frame >= character->frame_number) character->current_frame = 0;
+        }
+    } else{
+        if (character->direction == 1) character->current_frame = 1;
+        else character->current_frame = 0;
         character->frame_counter = 0;
-        character->current_frame++;
-        if (character->current_frame >= character->frame_number) character->current_frame = 0;
     }
 
     // Calculate frame rectangle for sprite animation
@@ -188,6 +216,9 @@ void UpdateCharacter(Character *character, Settings *game_settings, Vector2 map_
             else PlaySound(audio->step_indoor);
             step_timer = 0;
         }
+    } else {
+        if (IsSoundPlaying(audio->step_outdoor)) StopSound(audio->step_outdoor);
+        if (IsSoundPlaying(audio->step_indoor)) StopSound(audio->step_indoor);
     }
 }
 
@@ -203,4 +234,6 @@ void CloseCharacter(Character *character){
     UnloadTexture(character->walk_up);
     UnloadTexture(character->walk_left);
     UnloadTexture(character->walk_right);
+    UnloadTexture(character->lawnmower_mode);
+    UnloadTexture(character->lawnmower_item);
 }

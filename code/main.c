@@ -12,6 +12,16 @@
  * - 2026-04-07: Added `narration_has_started` Logic. (Goal: Synchronize the narrative 
  *                engine with the main game loop to prevent premature quest completion in 
  *                interactive phases.)
+ * - 2026-05-02: Added `ENDING_CUTSCENE` input handling in the main loop. (Goal: Route
+ *                `HandleEndingInput` when the game state is `ENDING_CUTSCENE`, enabling typed
+ *                dialogue progression and credits interaction.)
+ * - 2026-05-02: Prevented erroneous save-on-exit after credits. (Goal: Ensure that quitting
+ *                after reaching the end of the game does not re-save stale data, maintaining
+ *                a fresh "New Game" state on next launch.)
+ * - 2026-05-02: Updated `LoadStoryDay` call to pass `GameContext`. (Goal: Support conditional
+ *                quest loading that requires access to persistent game state.)
+ * - 2026-05-03: Synchronized global `UpdatePhone` and photo overlay timers. (Goal: Ensure 
+ *                consistent UI timing across all narrative cutscenes.)
  * 
  * Revision Details:
  * - Refactored the main loop to support `NARRATION_CUTSCENE` as a blocking state.
@@ -22,6 +32,12 @@
  *    once the fade is settled and the UI is active.
  * - Optimized the call order of `UpdateStory` and `UpdatePhone` to ensure better 
  *    state transitions.
+ * - Added `if (*game_state == ENDING_CUTSCENE) HandleEndingInput(...)` block in `RunGame`.
+ * - Updated `EndGame` signature to accept `GameState game_state` and gated `SaveData` behind
+ *    `if (game_state != MAINMENU)`.
+ * - Updated all `LoadStoryDay` calls to pass the `game_context` pointer.
+ * - Optimized the call order of `UpdateStory` and `UpdatePhone` to ensure better 
+ *    state transitions and global timer synchronization.
  * 
  * Authors: Andrew Zhuo, Cornelius Jabez Lim, Steven Kenneth Darwy
  */
@@ -50,14 +66,14 @@ void RunGame(Character *player, Audio *game_audio, Settings *game_settings,
              GameContext *game_context, GameState *game_state);
 void EndGame(Audio *game_audio, Character *player, Scene *game_scene,
              Interactive *game_interactive, Map *game_map,
-             Settings *game_settings, GameContext *game_context);
+             Settings *game_settings, GameContext *game_context, GameState game_state);
 
 int main(void){
     Settings game_settings = InitSettings();
     InitGame(&game_settings);
 
     Data game_data = LoadData(&game_settings);
-    Map game_map = InitMap("../assets/map/map_apart/APARTMENT_MAP.json");
+    Map game_map = InitMap("../assets/map/map_apart/APARTMENT_MAP.json", NULL);
     Character player = InitCharacter(&game_settings, &game_data, &game_map);
     Audio game_audio = InitAudio(&game_settings);
     Scene game_scene = InitScene(&game_settings);
@@ -71,7 +87,7 @@ int main(void){
     game_context->game_scene = &game_scene;
     game_context->game_dialogue = game_dialogue;
     
-    LoadStoryDay(&game_context->story, "../assets/text/day1/day1.txt");
+    LoadStoryDay(&game_context->story, "../assets/text/day1/day1.txt", game_context);
     StoryPhase* initial = GetActivePhase(&game_context->story);
     LoadPhaseAssets(initial, game_context);
     
@@ -80,7 +96,7 @@ int main(void){
     RunGame(&player, &game_audio, &game_settings, &game_scene, &game_interactive,
             game_dialogue, &game_map, game_context, &game_state);
     
-    EndGame(&game_audio, &player, &game_scene, &game_interactive, &game_map, &game_settings, game_context);
+    EndGame(&game_audio, &player, &game_scene, &game_interactive, &game_map, &game_settings, game_context, game_state);
     free(game_context);
     
     return 0;
@@ -114,7 +130,7 @@ void RunGame(Character *player, Audio *game_audio, Settings *game_settings,
         UpdateAudio(game_audio);
 
         // Interaction system: calculate proximity-based hitbox (expanded and centered)
-        Rectangle playerHitbox = {player->position.x - 40, player->position.y - 40, player->size.x + 80, player->size.y + 80};
+        Rectangle playerHitbox = {player->position.x - 40, player->position.y - 30, player->size.x + 80, player->size.y + 60};
         CheckInteractable(game_context->worldNPCs, game_context->worldItems, game_context->worldDoors, 
             game_context->npcCount, game_context->itemCount, game_context->doorCount,
             playerHitbox, &objectToInteractWith);
@@ -124,17 +140,25 @@ void RunGame(Character *player, Audio *game_audio, Settings *game_settings,
                 
         // Input Handling: Interaction Trigger (E)
         if (IsKeyPressed(KEY_E) && *game_state == GAMEPLAY) {
-            InteractWithObject(objectToInteractWith, current_dialogue, game_state, player, game_map, game_context);
+            InteractWithObject(objectToInteractWith, current_dialogue, game_state, player, game_map, game_context, game_audio);
         }
                 
         // Input Handling: Dialogue Progression and Choice Selection
         if (*game_state == DIALOGUE_CUTSCENE) {
-            InteractWithNPC(NULL, current_dialogue, game_state, game_context);
+            InteractWithNPC(NULL, current_dialogue, game_state, game_context, game_audio);
         }
                 
         // Input Handling: Narration Progression and Choice Selection
         if (*game_state == NARRATION_CUTSCENE) {
             HandleNarrationInput(game_context, (int*)game_state, game_audio);
+        }
+                
+        // Input Handling: Opening/Ending Sequence
+        if (*game_state == OPENING_CUTSCENE) {
+            HandleOpeningInput(game_context, (int*)game_state, game_audio);
+        }
+        if (*game_state == ENDING_CUTSCENE) {
+            HandleEndingInput(game_context, (int*)game_state, game_audio);
         }
                 
         // Trigger NARRATION_CUTSCENE when narration becomes active during GAMEPLAY
@@ -154,6 +178,8 @@ void RunGame(Character *player, Audio *game_audio, Settings *game_settings,
                 game_context->story.narration_current_line = 0;
                 game_context->story.narration_in_loop = false;
                 game_context->story.narration_showing_response = false;
+                game_context->story.narration_typing_index = 0;
+                game_context->story.narration_typing_timer = 0.0f;
             }
         }
                 
@@ -175,9 +201,11 @@ void RunGame(Character *player, Audio *game_audio, Settings *game_settings,
 
 void EndGame(Audio *game_audio, Character *player, Scene *game_scene,
              Interactive *game_interactive, Map *game_map,
-             Settings *game_settings, GameContext *game_context){
-    // Save data
-    SaveData(game_context, game_settings);
+             Settings *game_settings, GameContext *game_context, GameState game_state){
+    // Save data only if not in MAINMENU
+    if (game_state != MAINMENU) {
+        SaveData(game_context, game_settings);
+    }
     // Close audio
     CloseAudio(game_audio);
     // Close character

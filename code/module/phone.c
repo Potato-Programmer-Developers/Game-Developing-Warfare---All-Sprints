@@ -12,6 +12,16 @@
  *                the phone would auto-close if no new messages were active, allowing manual use.)
  * - 2026-04-05: Integrated "Dream Sequence" triggers into choice selection. (Goal: Bridge the 
  *                phone system to the screen-fade systems for seamless transitions into nightmare scenes.)
+ * - 2026-04-10: Implemented "Tree-Based Phone Navigation" for Day 2 SET4-PHASE3. (Goal: Replace the
+ *                linear `current_msg_index++` progression with a tree-aware navigation system that
+ *                follows `PhoneChoice.next_msg_idx` links to traverse deeply nested conversation
+ *                branches. Each choice now resolves to a specific message node, enabling the player
+ *                to explore unique dialogue paths that dead-end at terminal messages without leaking
+ *                into sibling branches.)
+ * - 2026-04-10: Integrated inline sanity and scene trigger application into choice selection. (Goal:
+ *                Apply `[SANITY]` and `[SCENE]` effects immediately upon reply selection, ensuring
+ *                that horror scene overlays and sanity adjustments occur at the correct narrative
+ *                moment instead of being deferred.)
  * 
  * Revision Details:
  * - Migrated from a single-message buffer to an 8-message `PhoneMessage` queue in `PhoneSequence`.
@@ -19,6 +29,17 @@
  * - Integrated `notif.wav` playback triggers into the phone's internal state machine updates.
  * - Added a timer-based delay for "Sent" message displays for better narrative pacing.
  * - Re-wrote `HandlePhoneInput` to maintain the `PHONE_OPENED` state regardless of message queue status.
+ * - Replaced `phone->current_msg_index++` in `UpdatePhone` with `phone->pending_next_msg` navigation.
+ *    The `PHONE_SHOWING_REPLY` state now reads the pending index to jump to the correct tree node,
+ *    returning to `PHONE_IDLE` when `pending_next_msg` is -1 or out of range (conversation end).
+ * - Updated `HandlePhoneInput` to set `phone->pending_next_msg = picked->next_msg_idx` upon choice
+ *    selection, enabling each reply to route the conversation down a specific branch path.
+ * - For choiceless messages (auto-advance), replaced `current_msg_index + 1` with
+ *    `cm->next_auto_idx`, a pre-computed field that only advances to true same-level sequential
+ *    siblings and returns -1 for terminal dead-end messages.
+ * - Added inline application of `PhoneChoice.sanity_change` to `ctx->player->sanity` and
+ *    `PhoneChoice.scene_trigger` to `ctx->story.current_scene` during choice selection.
+ * - Expanded `TriggerPhoneSequence` capacity from 8 to 32 messages.
  * 
  * Authors: Andrew Zhuo
  */
@@ -45,6 +66,7 @@ void InitPhone(Phone *phone){
     memset(phone->sequence, 0, sizeof(phone->sequence));
     phone->sequence_count = 0;
     phone->current_msg_index = 0;
+    phone->pending_next_msg = 0;
     memset(phone->selected_reply, 0, sizeof(phone->selected_reply));
 }
 
@@ -77,7 +99,7 @@ void TriggerPhoneNotification(Phone *phone, const char *sender, const char *msg,
 void TriggerPhoneSequence(Phone *phone, const char *sender, PhoneMessage *msgs, int count) {
     InitPhone(phone);
     if (sender) strncpy(phone->sender, sender, sizeof(phone->sender)-1);
-    phone->sequence_count = (count > 8) ? 8 : count;
+    phone->sequence_count = (count > 32) ? 32 : count;
     
     // Copy messages to phone sequence
     for (int i = 0; i < phone->sequence_count; i++){
@@ -100,10 +122,10 @@ void UpdatePhone(Phone *phone, float delta){
         phone->reply_timer += delta;
         if (phone->reply_timer >= 1.5f) {
             phone->reply_timer = 0;
-            phone->current_msg_index++;
-            if (phone->current_msg_index >= phone->sequence_count) {
-                 phone->state = PHONE_IDLE; // Sequence complete
+            if (phone->pending_next_msg < 0 || phone->pending_next_msg >= phone->sequence_count) {
+                 phone->state = PHONE_IDLE; // Sequence complete (branching end or out of range)
             } else {
+                 phone->current_msg_index = phone->pending_next_msg;
                  phone->state = PHONE_OPENED; // Show next message
             }
         }
@@ -216,9 +238,10 @@ void HandlePhoneInput(Phone *phone, struct GameContext *ctx){
         }
 
         if (cm->choice_count == 0){
-            // Auto advance since no choices
+            // Auto advance — use the pre-computed next target for choiceless messages
             phone->reply_timer = 0;
             phone->selected_reply[0] = '\0';
+            phone->pending_next_msg = cm->next_auto_idx;
             phone->state = PHONE_SHOWING_REPLY;
             return;
         }
@@ -259,16 +282,29 @@ void HandlePhoneInput(Phone *phone, struct GameContext *ctx){
 
         // Handle Selection
         if (selected){
-            strncpy(phone->selected_reply, cm->choices[choice].text, sizeof(phone->selected_reply) - 1);
+            PhoneChoice* picked = &cm->choices[choice];
+            strncpy(phone->selected_reply, picked->text, sizeof(phone->selected_reply) - 1);
             phone->state = PHONE_SHOWING_REPLY;
-            phone->reply_timer = 0; // reset wait timer
+            phone->reply_timer = 0;
+            phone->pending_next_msg = picked->next_msg_idx; // Follow the tree link
+            
+            // Apply sanity change
+            if (ctx && picked->sanity_change != 0) {
+                ctx->player->sanity += picked->sanity_change;
+            }
+            
+            // Apply scene trigger
+            if (ctx && picked->scene_trigger[0] != '\0') {
+                strncpy(ctx->story.current_scene, picked->scene_trigger, 31);
+                ctx->story.scene_timer = 3.0f;
+            }
             
             // If the choice had dream lines, copy them to GameContext
-            if (ctx && cm->choices[choice].dream_count > 0){
-                ctx->dream_count = cm->choices[choice].dream_count;
+            if (ctx && picked->dream_count > 0){
+                ctx->dream_count = picked->dream_count;
                 ctx->dream_current = 0;
                 for (int i = 0; i < ctx->dream_count; i++){
-                    strncpy(ctx->dream_lines[i], cm->choices[choice].dream_lines[i], 127);
+                    strncpy(ctx->dream_lines[i], picked->dream_lines[i], 127);
                 }
             }
         }

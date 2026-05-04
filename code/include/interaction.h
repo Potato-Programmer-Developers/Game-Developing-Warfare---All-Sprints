@@ -71,6 +71,7 @@ typedef struct Item {
     Interactable base;             // Base interactable properties
     bool picked_up;                // Persistence flag for collectibles
     bool is_pickup;                // If true, adds to inventory. If false, just shows text.
+    bool no_collision;             // If true, player can walk through this item (e.g., clue items)
 } Item;
 
 /**
@@ -138,7 +139,7 @@ void CheckInteractable(
  */
 void InteractWithObject(
     Interactable* objectToInteractWith, Dialogue* game_dialogue,
-    GameState* game_state, Character *player, Map *map, struct GameContext *game_context
+    GameState* game_state, Character *player, Map *map, struct GameContext *game_context, struct Audio *game_audio
 );
 
 /**
@@ -166,7 +167,7 @@ void InteractWithDoor(
  */
 void InteractWithNPC(
     NPC *npc, Dialogue *game_dialogue, GameState *game_state,
-    struct GameContext *game_context
+    struct GameContext *game_context, struct Audio *game_audio
 );
 
 /**
@@ -182,5 +183,12 @@ void InteractWithItem(
     Item *item, Dialogue *game_dialogue, GameState *game_state, Character *player,
     struct GameContext *game_context
 );
+
+/**
+ * @brief Handles passive mowing collision with grass for Day 3.
+ * 
+ * @param game_context Pointer to the game context.
+ */
+void UpdateDay3Mowing(struct GameContext* game_context);
 
 #endif

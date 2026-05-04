@@ -47,6 +47,8 @@ typedef struct Character {
     Texture2D walk_up;                   // Texture for walking state
     Texture2D walk_left;                 // Texture for walking state
     Texture2D walk_right;                // Texture for walking state
+    Texture2D lawnmower_mode;            // Texture for character in lawnmower mode
+    Texture2D lawnmower_item;            // Texture for the animated lawnmower object itself
     Texture2D sprite;                    // Current active texture being drawn
     Vector2 position;                    // World coordinates of the player
     Vector2 size;                        // Visual size of the character
@@ -60,6 +62,7 @@ typedef struct Character {
     int current_frame;                   // Index of current animation frame
     int frame_counter;                   // Counter for frame speed logic
     int frame_speed;                     // Animation play speed
+    bool can_move;                       // If false, movement inputs are ignored (cutscenes)
 
     // --- Gameplay Mechanics ---
     float stamina;                       // Current energy for running
@@ -73,6 +76,7 @@ typedef struct Character {
     char inventory[MAX_INVENTORY_SIZE][MAX_ITEM_NAME_LENGTH]; // Names of items currently held
     int item_count[MAX_INVENTORY_SIZE];                       // Quantities of each unique item
     int inventory_count;                                      // Total number of unique items in inventory
+    int last_horiz_dir;                                       // Tracks last horizontal direction for specialized animations (1=left, 2=right)
 } Character;
 
 /**

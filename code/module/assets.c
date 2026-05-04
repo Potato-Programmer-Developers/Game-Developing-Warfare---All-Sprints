@@ -9,11 +9,31 @@
  *                orientations simultaneously.)
  * - 2026-04-05: Integrated audio resource cleanup. (Goal: Ensure `UnloadWave` 
  *                and `UnloadSound` are called correctly during map transitions.)
+ * - 2026-05-02: Added Forest map interactables to the asset registry. (Goal: Register `giant_tree`,
+ *                `campfire`, and `tent` objects so they can be spawned and interacted with on the
+ *                Forest map.)
+ * - 2026-05-02: Implemented bidirectional door routing. (Goal: Doors now route to different maps
+ *                depending on the player's current location — e.g., `house_door` goes to INTERIOR
+ *                from EXTERIOR but back to EXTERIOR from INTERIOR — replacing the previous
+ *                one-directional hardcoded routing.)
+ * - 2026-05-02: Added `forest_road` door routing to the Forest map. (Goal: Enable the player to
+ *                travel from EXTERIOR to FOREST via the `forest_road` door, and back.)
+ * - 2026-05-02: Set initial karma for farmer and saul NPCs to 49. (Goal: Establish a neutral
+ *                starting karma for both NPCs so that karma-gated dialogue branches work correctly
+ *                from the start.)
+ * - 2026-05-02: Added `GetAssetKarma` lookup function. (Goal: Allow the dialogue system to query
+ *                an NPC's current karma value for `[IF] KARMA` conditional branches.)
  * 
  * Revision Details:
  * - Implemented `LoadCharacterTextures` to batch-load Kane's movement set.
  * - Added `UnloadPlayerTextures` helper for clean state resets.
  * - Fixed a resource leak where TMX tilemap textures were not being freed properly.
+ * - Added `giant_tree`, `campfire`, and `tent` entries to `ASSET_REGISTRY` with
+ *    `INTERACTABLE_TYPE_ITEM` for Forest map objects.
+ * - Refactored `house_door`, `farm_road`, and `forest_road` routing in `LoadPhaseAssets` to check
+ *    `context->location` and set bidirectional target maps/locations.
+ * - Changed `farmer` and `saul` karma from `0` to `49` in the asset registry.
+ * - Added `GetAssetKarma` function that calls `FindInRegistry` and returns the karma value.
  * 
  * Authors: Andrew Zhuo
  */
@@ -55,12 +75,13 @@ static AssetMetadata ASSET_REGISTRY[] = {
     {"potato", "", {1200, 1500, 64, 64}, INTERACTABLE_TYPE_ITEM, "../assets/text/day1/phase2/potato.txt", 0},
     {"big tree", "", {1500, 1000, 192, 256}, INTERACTABLE_TYPE_ITEM, "../assets/text/day1/phase2/big tree.txt", 0},
     {"tree", "", {1000, 1100, 96, 128}, INTERACTABLE_TYPE_ITEM, "../assets/text/day1/phase2/tree.txt", 0},
-    {"farmer", "../assets/images/character/jhonny/jhonny_idle.png", {1600, 1200, 64, 96}, INTERACTABLE_TYPE_NPC, "", 0},
-    {"saul", "../assets/images/character/furina.png", {0, 0, 0, 0}, INTERACTABLE_TYPE_NPC, "", 0},
+    {"farmer", "../assets/images/character/jhonny/jhonny_idle.png", {1600, 1200, 64, 96}, INTERACTABLE_TYPE_NPC, "", 49},
+    {"saul", "../assets/images/character/saul/saul.png", {0, 0, 0, 0}, INTERACTABLE_TYPE_NPC, "", 49},
     {"house", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
     {"house_door", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_DOOR, "", 0},
     {"farm_road", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_DOOR, "../assets/text/day1/set4/phase1/farm_road.txt", 0},
     {"forest_road", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_DOOR, "../assets/text/day1/set4/phase1/forest_road.txt", 0},
+    {"mike", "../assets/images/character/mike/mike_down.png", {0, 0, 0, 0}, INTERACTABLE_TYPE_NPC, "", 0},
 
     // --- Interior Assets ---
     {"fireplace", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
@@ -84,6 +105,17 @@ static AssetMetadata ASSET_REGISTRY[] = {
 
     // --- Farm Assets ---
     {"scarecrow", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"lawnmower", "../assets/map/map_farm/lawnmower.png", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"brown_grass1", "../assets/map/map_farm/brown_grass.png", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"brown_grass2", "../assets/map/map_farm/brown_grass.png", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"brown_grass3", "../assets/map/map_farm/brown_grass.png", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"brown_grass4", "../assets/map/map_farm/brown_grass.png", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"brown_grass5", "../assets/map/map_farm/brown_grass.png", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"brown_grass6", "../assets/map/map_farm/brown_grass.png", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"brown_grass7", "../assets/map/map_farm/brown_grass.png", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"brown_grass8", "../assets/map/map_farm/brown_grass.png", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"brown_grass9", "../assets/map/map_farm/brown_grass.png", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"brown_grass10", "../assets/map/map_farm/brown_grass.png", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
     {"small_logs1", "../assets/map/map_farm/small logs.png", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
     {"small_logs2", "../assets/map/map_farm/small logs.png", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
     {"small_logs3", "../assets/map/map_farm/small logs.png", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
@@ -101,6 +133,33 @@ static AssetMetadata ASSET_REGISTRY[] = {
     {"big_logs5", "../assets/map/map_farm/big logs.png", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
     {"left box", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
     {"right box", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"red_pot1", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"red_pot2", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"red_pot3", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"red_pot4", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"red_pot5", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"red_pot6", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"orange_pot1", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"orange_pot2", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"orange_pot3", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"orange_pot4", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"orange_pot5", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"orange_pot6", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"green_pot1", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"green_pot2", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"green_pot3", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"green_pot4", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"green_pot5", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"green_pot6", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"footsteps", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"feathers", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"rosary", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"pumpkin_piece", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+
+    // --- Forest Assets ---
+    {"giant_tree", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"campfire", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
+    {"tent", "", {0, 0, 0, 0}, INTERACTABLE_TYPE_ITEM, "", 0},
 };
 
 static int REGISTRY_COUNT = sizeof(ASSET_REGISTRY) / sizeof(ASSET_REGISTRY[0]);
@@ -121,6 +180,14 @@ void UpdateAssetKarma(const char* id, int delta){
         if (meta->karma > 100) meta->karma = 100;
         if (meta->karma < -100) meta->karma = -100; 
     }
+}
+
+int GetAssetKarma(const char* id) {
+    AssetMetadata* meta = FindInRegistry(id);
+    if (meta) {
+        return meta->karma;
+    }
+    return 0;
 }
 
 int GetRegistryKarma(int* dest, int max_size){
@@ -164,6 +231,13 @@ void LoadPhaseAssets(StoryPhase* phase, GameContext* context){
         AssetMetadata* meta = FindInRegistry(phase->interactables[i].id);
         if (!meta) continue;
 
+        // Explicit gate for clues: Day 2 SET 1 only
+        if (strcmp(meta->id, "rosary") == 0 || strcmp(meta->id, "feathers") == 0 || 
+            strcmp(meta->id, "pumpkin_piece") == 0 || strcmp(meta->id, "footsteps") == 0) {
+            bool day2_active = (strcmp(context->story.day_folder, "day2") == 0);
+            if (!(day2_active && context->story.current_set_idx == 0)) continue;
+        }
+
         // Try to get dynamic bounds from Tiled object layer
         Rectangle finalBounds = GetMapObjectBounds(context->map, meta->id);
         if (finalBounds.width == 0 || finalBounds.height == 0){
@@ -189,11 +263,25 @@ void LoadPhaseAssets(StoryPhase* phase, GameContext* context){
             strncpy(item->base.texturePath, meta->texturePath, 127);
             
             // Construct dynamic dialogue path based on current story state
-            sprintf(item->base.dialoguePath, "../assets/text/%s/set%d/phase%d/%s.txt", 
-                    context->story.day_folder, context->story.current_set_idx + 1, 
-                    context->story.current_phase_idx + 1, meta->id);
+            if (strstr(meta->id, "pot") != NULL) {
+                sprintf(item->base.dialoguePath, "../assets/text/%s/set%d/phase%d/pot.txt", 
+                        context->story.day_folder, context->story.current_set_idx + 1, 
+                        context->story.current_phase_idx + 1);
+            } else {
+                sprintf(item->base.dialoguePath, "../assets/text/%s/set%d/phase%d/%s.txt", 
+                        context->story.day_folder, context->story.current_set_idx + 1, 
+                        context->story.current_phase_idx + 1, meta->id);
+            }
             item->is_pickup = false; 
-            if (strstr(meta->id, "logs") || strstr(meta->id, "garbage")) item->is_pickup = true;
+            item->no_collision = false;
+            if (strstr(meta->id, "logs") || strstr(meta->id, "garbage") || strcmp(meta->id, "lawnmower") == 0 || strstr(meta->id, "brown_grass")) item->is_pickup = true;
+            
+            // Clue items and brown grass should never block the player
+            if (strcmp(meta->id, "rosary") == 0 || strcmp(meta->id, "feathers") == 0 || 
+                strcmp(meta->id, "pumpkin_piece") == 0 || strcmp(meta->id, "footsteps") == 0 ||
+                strstr(meta->id, "brown_grass") != NULL) {
+                item->no_collision = true;
+            }
             
             // Persistent state: Check if this item was already picked up in this session
             for (int j = 0; j < context->picked_up_count; j++) {
@@ -209,10 +297,31 @@ void LoadPhaseAssets(StoryPhase* phase, GameContext* context){
             door->base.type = INTERACTABLE_TYPE_DOOR;
             strncpy(door->base.texturePath, meta->texturePath, 127);
             
-            // Hardcoded targets for specific doors
+            // Hardcoded targets: each door always leads to the same map
             if (strcmp(meta->id, "house_door") == 0){
-                strcpy(door->targetMapPath, "../assets/map/map_int/MAIN_MAP_INT.json");
-                door->targetLocation = INTERIOR;
+                if (context->location == EXTERIOR) {
+                    strcpy(door->targetMapPath, "../assets/map/map_int/MAIN_MAP_INT.json");
+                    door->targetLocation = INTERIOR;
+                } else {
+                    strcpy(door->targetMapPath, "../assets/map/map_ext/MAINMAP.json");
+                    door->targetLocation = EXTERIOR;
+                }
+            } else if (strcmp(meta->id, "farm_road") == 0){
+                if (context->location == EXTERIOR) {
+                    strcpy(door->targetMapPath, "../assets/map/map_farm/FARM.json");
+                    door->targetLocation = FARM;
+                } else {
+                    strcpy(door->targetMapPath, "../assets/map/map_ext/MAINMAP.json");
+                    door->targetLocation = EXTERIOR;
+                }
+            } else if (strcmp(meta->id, "forest_road") == 0){
+                if (context->location == EXTERIOR) {
+                    strcpy(door->targetMapPath, "../assets/map/map_forest/forest.json");
+                    door->targetLocation = FOREST;
+                } else {
+                    strcpy(door->targetMapPath, "../assets/map/map_ext/MAINMAP.json");
+                    door->targetLocation = EXTERIOR;
+                }
             }
 
             sprintf(door->base.dialoguePath, "../assets/text/%s/set%d/phase%d/%s.txt", 
@@ -221,8 +330,26 @@ void LoadPhaseAssets(StoryPhase* phase, GameContext* context){
         }
     }
 
+    // Mike Special Loading for Day 3
+    if (strcmp(context->story.day_folder, "day3") == 0 && context->story.current_set_idx == 0 && context->story.current_phase_idx == 0) {
+        if (context->mike_down_tex.id == 0) {
+            context->mike_down_tex = LoadTexture("../assets/images/character/mike/mike_down.png");
+            // Find Mike position and size from map
+            for (int i = 0; i < context->npcCount; i++) {
+                if (strcmp(context->worldNPCs[i].base.interactable_id, "mike") == 0) {
+                    context->mike_pos = (Vector2){context->worldNPCs[i].base.bounds.x, context->worldNPCs[i].base.bounds.y};
+                    context->mike_size = (Vector2){context->worldNPCs[i].base.bounds.width, context->worldNPCs[i].base.bounds.height};
+                    break;
+                }
+            }
+        }
+    }
+
     LoadNPCs(context->worldNPCs, context->npcCount);
     LoadItems(context->worldItems, context->itemCount);
+    
+    // Dynamically load any branching narration for this phase
+    LoadPhaseNarration(phase, context);
 }
 
 void UnloadLocationAssets(GameContext* context){
@@ -243,6 +370,12 @@ void UnloadLocationAssets(GameContext* context){
         context->worldItems = NULL;
     }
     context->itemCount = 0;
+    
+    // Unload Mike's special texture
+    if (context->mike_down_tex.id != 0) {
+        UnloadTexture(context->mike_down_tex);
+        context->mike_down_tex.id = 0;
+    }
     
     // Unload Doors
     if (context->worldDoors != NULL){

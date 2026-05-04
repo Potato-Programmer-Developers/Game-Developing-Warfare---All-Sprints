@@ -1,0 +1,64 @@
+AISLING
+THE END
+
+Developer
+Potato
+
+Lead Director
+Timothy Pardin
+
+Lead Writer
+Kristian Lung
+
+Writer
+Timothy Pardin
+
+Lead Programmer
+Andrew Zhuo
+
+Programmer
+Cornelius Jabez
+Steven Kenneth
+
+Art
+Kristian Lung
+
+Video Editor
+Kristian Lung
+
+Animator
+Kristian Lung
+
+Map Design
+Kristian Lung
+
+Music & SFX
+Andrew Zhuo
+Kristian Lung
+
+Documenter
+Alvin Lim
+Andrew Zhuo
+Cornelius Jabez
+Steven Kenneth
+Timothy Pardin
+
+Inspiration
+Fears to Fathom by Rayll
+Omori by OMOCAT
+
+Special Thanks
+Technical insight
+Christopher Nathanael
+
+Technical Credits
+Game Engine
+Raylib by raysan5
+
+Map Editor
+Tiled by Thorbjorn Lindeijer
+
+Map Handler
+cute_tiled by RandyGaul
+
+THANK YOU FOR PLAYING

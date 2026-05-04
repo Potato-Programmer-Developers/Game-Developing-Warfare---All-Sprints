@@ -5,6 +5,13 @@
  * Defines the various operational modes of the game (Menu, Play, Pause)
  * and the primary update loop dispatcher.
  * 
+ * Update History:
+ * - 2026-05-02: Added `ENDING_CUTSCENE` to the `GameState` enum. (Goal: Distinguish ending
+ *                sequences as a unique blocking state separate from narration or photo cutscenes.)
+ * 
+ * Revision Details:
+ * - Added `ENDING_CUTSCENE` entry to the `GameState` enum for multi-ending support.
+ * 
  * Authors: Andrew Zhuo and Steven Kenneth Darwy
  */
 
@@ -30,7 +37,9 @@ typedef enum {
 	SETTINGS,          // Configuration sub-menu
 	DIALOGUE_CUTSCENE, // Locked state focused on text interaction
 	PHOTO_CUTSCENE,    // Non-interactive animated sequence
-	NARRATION_CUTSCENE // Locked state for interactive narration sequences
+	NARRATION_CUTSCENE,// Locked state for interactive narration sequences
+	OPENING_CUTSCENE,  // Game opening sequence (black screen + dialogue)
+	ENDING_CUTSCENE    // Game ending sequence (black screen + dialogue)
 } GameState;
 
 /**

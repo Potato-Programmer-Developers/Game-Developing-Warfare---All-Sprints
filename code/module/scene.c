@@ -12,6 +12,18 @@
  * - 2026-04-06: Expansion of the "UI Animation Engine." (Goal: Modularize frame loading logic 
  *                to support diverse menu animations—Main, Pause, and Settings—while maintaining 
  *                low VRAM usage through on-demand loading.)
+ * - 2026-05-02: Implemented the `ENDING_CUTSCENE` renderer with typed dialogue and scrolling credits.
+ *                (Goal: Draw ending sequences as typed `Speaker: dialogue` text on a black screen,
+ *                then render a scrolling credits sequence with paragraph-aware role/name coloring,
+ *                special title formatting, and a gated SPACE prompt.)
+ * - 2026-05-02: Fixed tutorial tooltip rendering to only display on Day 1. (Goal: Prevent
+ *                tooltips from appearing on every `SET1-PHASE1` across all days by adding a
+ *                `day_folder == "day1"` guard.)
+ * - 2026-05-02: Added dialogue box typing effect with speaker-aware coloring. (Goal: Display
+ *                dialogue text with a typewriter effect that correctly colors the speaker name in
+ *                GOLD and dialogue text in WHITE.)
+ * - 2026-05-03: Implemented Mike cutscene scaling and centered photo overlay rendering. (Goal: 
+ *                Ensure Mike's sprite matches his Tiled map object size and support narrative photos.)
  * 
  * Revision Details:
  * - Refactored `DrawGame` to include conditional rendering for `NARRATION_CUTSCENE` and `PHONE` overlays.
@@ -22,6 +34,17 @@
  *    `../assets/videos/esc_option/` directory.
  * - Refactored `DrawPauseMenu` to render `current_cutscene_frame_texture` as its background, 
  *    removing the requirement for a static background texture.
+ * - Added `ENDING_CUTSCENE` rendering block in `DrawGame` with two sub-states: dialogue display
+ *    (typed `Speaker: text` with GOLD/WHITE coloring) and scrolling credits.
+ * - Implemented paragraph-aware color state machine for credits: empty lines reset `next_is_role`,
+ *    first non-empty line uses GOLD, subsequent lines use WHITE. `"AISLING"`, `"THE END"`, and
+ *    `"THANK YOU FOR PLAYING"` are special-cased.
+ * - Added `strcmp(game_context->story.day_folder, "day1") == 0` guard to the tutorial tooltip rendering.
+ * - Updated `DrawMap` call in `DrawGameplay` to pass `game_context->bear_trap_inside`.
+ * - Added speaker-aware typing effect in the dialogue box rendering.
+ * - Added photo overlay rendering block in `DrawGame` using `DrawTexturePro` for scaling.
+ * - Implemented a semi-transparent black backdrop and `DrawRectangleLinesEx` for a sleek UI look.
+ * - Updated `DrawGame` to render Mike using Tiled-specific width/height instead of default frames.
  * 
  * Authors: Andrew Zhuo and Steven Kenneth Darwy
  */
@@ -54,7 +77,7 @@ Scene InitScene(Settings* game_settings){
     return new_scene;
 }
 
-void StartFadeTransition(Scene* scene, Color color, const char* map, const char* loc) {
+void StartFadeTransition(Scene* scene, Color color, const char* map, const char* loc, const char* spawn_id) {
     if (!scene) return;
     scene->fade_color = color;
     scene->fade_alpha = 0.0f;
@@ -64,6 +87,8 @@ void StartFadeTransition(Scene* scene, Color color, const char* map, const char*
     else scene->pending_map[0] = '\0';
     if (loc) strncpy(scene->pending_loc, loc, 31);
     else scene->pending_loc[0] = '\0';
+    if (spawn_id) strncpy(scene->pending_spawn_id, spawn_id, 63);
+    else scene->pending_spawn_id[0] = '\0';
 }
 
 void UpdateFade(Scene* scene, float delta, GameState state){
@@ -127,28 +152,79 @@ void DrawGame(Scene *game_scene, Settings *game_settings, Interactive *game_inte
 
         // Draw dialogue box
         if (*game_state == DIALOGUE_CUTSCENE){
-            DrawRectangle(0, GetScreenHeight() - 200, GetScreenWidth(), 200, Fade(BLACK, 0.8f));
+            int required_height = 200;
+            DialogueNode* current_node = &game_dialogue->nodes[game_dialogue->current_node_idx];
+            bool has_choices = (game_dialogue->current_line >= game_dialogue->line_count - 1 && current_node->choice_count > 0);
+            
+            if (has_choices) {
+                int needed = 70 + current_node->choice_count * 30 + 30; // margins + spacing
+                if (needed > required_height) required_height = needed;
+            }
+            
+            DrawRectangle(0, GetScreenHeight() - required_height, GetScreenWidth(), required_height, Fade(BLACK, 0.8f));
+            int box_y = GetScreenHeight() - required_height;
             
             // Get the current node's text
-            DialogueNode* current_node = &game_dialogue->nodes[game_dialogue->current_node_idx];
-            const char *line = game_dialogue->lines[game_dialogue->current_line];
-            
-            DrawText(line, GetScreenWidth() / 2 - MeasureText(line, 20) / 2, GetScreenHeight() - 170, 20, WHITE);
-
-            // Draw choices if we're at the end of the current node's text
-            if (game_dialogue->current_line >= game_dialogue->line_count - 1 && current_node->choice_count > 0){
-                for (int i = 0; i < current_node->choice_count; i++){
-                    char choiceText[128];
-                    sprintf(choiceText, "%d. %s", i + 1, current_node->choices[i]);
-                    DrawText(choiceText, 100, GetScreenHeight() - 130 + (i * 30), 20, YELLOW);
+            const char *full_line = game_dialogue->lines[game_dialogue->current_line];
+            int line_len = strlen(full_line);
+            int start_x = GetScreenWidth() / 2 - MeasureText(full_line, 20) / 2;
+            const char* colon = strchr(full_line, ':');
+            if (colon) {
+                int speaker_len = (int)(colon - full_line);
+                char speaker[64] = {0};
+                strncpy(speaker, full_line, speaker_len < 63 ? speaker_len : 63);
+                const char* dialogue_text = colon + 1;
+                while (*dialogue_text == ' ') dialogue_text++;
+                
+                int typed_chars = game_dialogue->typing_index;
+                if (typed_chars <= speaker_len + 2) {
+                    const char* typed = TextSubtext(full_line, 0, typed_chars);
+                    DrawText(typed, start_x, box_y + 30, 20, GOLD);
+                } else {
+                    char temp_speaker[64];
+                    sprintf(temp_speaker, "%s: ", speaker);
+                    DrawText(temp_speaker, start_x, box_y + 30, 20, GOLD);
+                    int colon_w = MeasureText(temp_speaker, 20);
+                    const char* typed_dialogue = TextSubtext(dialogue_text, 0, typed_chars - (speaker_len + 2));
+                    DrawText(typed_dialogue, start_x + colon_w, box_y + 30, 20, WHITE);
                 }
-            } else if (game_dialogue->current_line < game_dialogue->line_count) {
-                DrawText("Press 'SPACE' to continue", GetScreenWidth() - 300, GetScreenHeight() - 40, 20, GRAY);
+            } else {
+                const char *typed_line = TextSubtext(full_line, 0, game_dialogue->typing_index);
+                DrawText(typed_line, start_x, box_y + 30, 20, WHITE);
+            }
+
+            // Draw choices if we're at the end of the current node's text and typing is complete
+            if (game_dialogue->typing_index >= line_len) {
+                if (has_choices){
+                    for (int i = 0; i < current_node->choice_count; i++){
+                        char choiceText[128];
+                        sprintf(choiceText, "%d. %s", i + 1, current_node->choices[i]);
+                        DrawText(choiceText, 100, box_y + 80 + (i * 30), 20, YELLOW);
+                    }
+                } else if (game_dialogue->current_line < game_dialogue->line_count) {
+                    DrawText("Press 'SPACE' to continue", GetScreenWidth() - 300, GetScreenHeight() - 40, 20, GRAY);
+                }
             }
         }
 
-        // Draw phone
+        // Draw Phone
         DrawPhone(&game_context->phone);
+
+        // Draw photo overlay
+        if (game_context->photo_overlay_active && game_context->photo_overlay.id != 0) {
+            float scale = 0.75f;
+            float drawW = (float)GetScreenWidth() * scale;
+            float drawH = (float)GetScreenHeight() * scale;
+            float x = ((float)GetScreenWidth() - drawW) / 2.0f;
+            float y = ((float)GetScreenHeight() - drawH) / 2.0f;
+            
+            DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(BLACK, 0.5f));
+            DrawTexturePro(game_context->photo_overlay,
+                (Rectangle){0, 0, (float)game_context->photo_overlay.width, (float)game_context->photo_overlay.height},
+                (Rectangle){x, y, drawW, drawH},
+                (Vector2){0, 0}, 0.0f, WHITE);
+            DrawRectangleLinesEx((Rectangle){x, y, drawW, drawH}, 3, RAYWHITE);
+        }
         
         // Draw objectives
         StoryPhase* active_phase = GetActivePhase(&game_context->story);
@@ -167,12 +243,47 @@ void DrawGame(Scene *game_scene, Settings *game_settings, Interactive *game_inte
                 Color qColor = q->completed ? LIME : WHITE;
                 const char* prefix = q->completed ? "[v] " : "[ ] ";
                 char qText[256];
-                sprintf(qText, "%s%s", prefix, q->description);
+                
+                // Dynamic quest progress injection
+                if (strstr(q->description, "(0/18)")) {
+                    int pots_planted = 0;
+                    for (int p = 0; p < 18; p++) if (game_context->pot_registry[p].is_planted) pots_planted++;
+                    
+                    q->completed = (pots_planted >= 18);
+                    qColor = q->completed ? LIME : WHITE;
+                    prefix = q->completed ? "[v] " : "[ ] ";
+
+                    char modified_desc[128];
+                    strcpy(modified_desc, q->description);
+                    char* ptr = strstr(modified_desc, "(0/18)");
+                    sprintf(ptr, "(%d/18)", pots_planted);
+                    sprintf(qText, "%s%s", prefix, modified_desc);
+                } else if (strstr(q->description, "(0/4)")) {
+                    int clues_found = 0;
+                    for (int c = 0; c < active_phase->condition_count; c++) {
+                        if (active_phase->end_conditions[c].type == CONDITION_INTERACT_OBJECT && active_phase->end_conditions[c].met) {
+                            clues_found++;
+                        }
+                    }
+                    
+                    q->completed = (clues_found >= 4);
+                    qColor = q->completed ? LIME : WHITE;
+                    prefix = q->completed ? "[v] " : "[ ] ";
+
+                    char modified_desc[128];
+                    strcpy(modified_desc, q->description);
+                    char* ptr = strstr(modified_desc, "(0/4)");
+                    sprintf(ptr, "(%d/4)", clues_found);
+                    sprintf(qText, "%s%s", prefix, modified_desc);
+                } else {
+                    sprintf(qText, "%s%s", prefix, q->description);
+                }
+                
                 DrawText(qText, 35, 55 + (i * 25), 18, qColor);
             }
             
-            // Draw tooltip for tutorial in SET1-PHASE1
-            if (strcmp(active_phase->name, "SET1-PHASE1") == 0){
+            // Draw tooltip for tutorial in SET1-PHASE1 of Day 1
+            if (strcmp(active_phase->name, "SET1-PHASE1") == 0 && strcmp(game_context->story.day_folder, "day1") == 0){
                 const char* tooltip = NULL;
                 if (!active_phase->quests[0].completed && *game_state == GAMEPLAY) tooltip = "WASD TO MOVE";
                 else if (active_phase->quest_count > 1 && !active_phase->quests[1].completed && *game_state == GAMEPLAY) tooltip = "PRESS 'E' TO INTERACT";
@@ -206,22 +317,34 @@ void DrawGame(Scene *game_scene, Settings *game_settings, Interactive *game_inte
 
         // Draw Interactive Narration (only when phone is not playing)
         if (*game_state == NARRATION_CUTSCENE && game_context->story.narration_active && active_phase && !game_context->story.phone_sequence_active){
-            DrawRectangle(0, GetScreenHeight() - 200, GetScreenWidth(), 200, Fade(BLACK, 0.8f));
+            int required_height = 200;
+            if (!game_context->story.narration_showing_response && game_context->story.narration_in_loop) {
+                int needed = 60 + active_phase->narration_choice_count * 30 + 30; // margins
+                if (needed > required_height) required_height = needed;
+            }
+            
+            DrawRectangle(0, GetScreenHeight() - required_height, GetScreenWidth(), required_height, Fade(BLACK, 0.8f));
+            int box_y = GetScreenHeight() - required_height;
             
             if (game_context->story.narration_showing_response){
                 // Show the response text for a chosen option
                 const char* resp = game_context->story.narration_response_text;
-                DrawText(resp, GetScreenWidth() / 2 - MeasureText(resp, 20) / 2, GetScreenHeight() - 170, 20, WHITE);
-                DrawText("Press 'SPACE' to continue", GetScreenWidth() - 300, GetScreenHeight() - 40, 20, GRAY);
+                int resp_len = strlen(resp);
+                int start_x = GetScreenWidth() / 2 - MeasureText(resp, 20) / 2;
+                const char *typed_resp = TextSubtext(resp, 0, game_context->story.narration_typing_index);
+                DrawText(typed_resp, start_x, box_y + 30, 20, WHITE);
+                if (game_context->story.narration_typing_index >= resp_len) {
+                    DrawText("Press 'SPACE' to continue", GetScreenWidth() - 300, GetScreenHeight() - 40, 20, GRAY);
+                }
             } else if (game_context->story.narration_in_loop){
                 // Show loop choices
-                DrawText("What should I do?", GetScreenWidth() / 2 - MeasureText("What should I do?", 20) / 2, GetScreenHeight() - 190, 20, WHITE);
+                DrawText("What should I do?", GetScreenWidth() / 2 - MeasureText("What should I do?", 20) / 2, box_y + 20, 20, WHITE);
                 int drawn = 0;
                 for (int i = 0; i < active_phase->narration_choice_count; i++){
                     char choiceText[128];
                     sprintf(choiceText, "%d. %s", drawn + 1, active_phase->narration_choices[i].label);
                     Color color = active_phase->narration_choices[i].completed ? DARKGRAY : YELLOW;
-                    DrawText(choiceText, 100, GetScreenHeight() - 160 + (i * 30), 20, color);
+                    DrawText(choiceText, 100, box_y + 60 + (i * 30), 20, color);
                     drawn++;
                 }
             } else{
@@ -229,8 +352,13 @@ void DrawGame(Scene *game_scene, Settings *game_settings, Interactive *game_inte
                 int line_idx = game_context->story.narration_current_line;
                 if (line_idx < active_phase->narration_count && active_phase->narration_lines[line_idx].type == 0){
                     const char* ntext = active_phase->narration_lines[line_idx].text;
-                    DrawText(ntext, GetScreenWidth() / 2 - MeasureText(ntext, 20) / 2, GetScreenHeight() - 170, 20, WHITE);
-                    DrawText("Press 'SPACE' to continue", GetScreenWidth() - 300, GetScreenHeight() - 40, 20, GRAY);
+                    int line_len = strlen(ntext);
+                    int start_x = GetScreenWidth() / 2 - MeasureText(ntext, 20) / 2;
+                    const char *typed_line = TextSubtext(ntext, 0, game_context->story.narration_typing_index);
+                    DrawText(typed_line, start_x, box_y + 30, 20, WHITE);
+                    if (game_context->story.narration_typing_index >= line_len) {
+                        DrawText("Press 'SPACE' to continue", GetScreenWidth() - 300, GetScreenHeight() - 40, 20, GRAY);
+                    }
                 }
             }
         }
@@ -246,6 +374,141 @@ void DrawGame(Scene *game_scene, Settings *game_settings, Interactive *game_inte
             int txtW = MeasureText(dtxt, 20);
             DrawText(dtxt, GetScreenWidth() / 2 - txtW / 2, GetScreenHeight() / 2 - 10, 20, WHITE);
             DrawText(TextFormat("Dreaming... %d/%d", game_context->dream_current+1, game_context->dream_count), 20, 20, 15, GRAY);
+        }
+    }
+
+    // Draw SCENE overlay (e.g. FLASHBACK)
+    if (game_context->story.scene_timer > 0) {
+        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(BLACK, 1.0f));
+        if (game_context->story.current_scene[0] != '\0') {
+            const char* s_text = game_context->story.current_scene;
+            int s_txtW = MeasureText(s_text, 30);
+            DrawText(s_text, GetScreenWidth() / 2 - s_txtW / 2, GetScreenHeight() / 2 - 15, 30, WHITE);
+        }
+    }
+
+    // Draw Opening Sequence
+    if (*game_state == OPENING_CUTSCENE && game_context->story.opening_active) {
+        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), BLACK);
+        if (game_context->story.opening_current_line < game_context->story.opening_line_count) {
+            const char* full_line = game_context->story.opening_lines[game_context->story.opening_current_line];
+            int line_len = strlen(full_line);
+            int start_x = GetScreenWidth() / 2 - MeasureText(full_line, 20) / 2;
+            int start_y = GetScreenHeight() / 2 - 10;
+
+            const char* typed_line = TextSubtext(full_line, 0, game_context->story.opening_typing_index);
+            DrawText(typed_line, start_x, start_y, 20, WHITE);
+
+            if (game_context->story.opening_typing_index >= line_len) {
+                DrawText("Press 'SPACE' to continue", GetScreenWidth() / 2 - MeasureText("Press 'SPACE' to continue", 15) / 2, GetScreenHeight() - 60, 15, GRAY);
+            }
+        }
+    }
+
+    // Draw Ending Sequence
+    if (*game_state == ENDING_CUTSCENE && game_context->story.ending_active) {
+        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), BLACK);
+        
+        if (game_context->story.ending_photo_active) {
+            // Draw ending photo FullScreen
+            if (game_context->story.ending_photo.id != 0) {
+                DrawTexturePro(game_context->story.ending_photo,
+                    (Rectangle){0, 0, (float)game_context->story.ending_photo.width, (float)game_context->story.ending_photo.height},
+                    (Rectangle){0, 0, (float)GetScreenWidth(), (float)GetScreenHeight()},
+                    (Vector2){0, 0}, 0.0f, WHITE);
+            }
+        } else if (game_context->story.ending_show_credits) {
+            // Scrolling Credits screen
+            game_context->story.ending_credits_y -= 40.0f * GetFrameTime();
+            
+            bool next_is_role = true;
+            for (int i = 0; i < game_context->story.ending_credits_line_count; i++) {
+                const char* line = game_context->story.ending_credits_lines[i];
+                float line_y = game_context->story.ending_credits_y + (i * 30.0f);
+                
+                if (strlen(line) == 0) {
+                    next_is_role = true;
+                    continue;
+                }
+                
+                // Only draw if within screen bounds (plus some margin)
+                if (line_y > -50 && line_y < GetScreenHeight() + 50) {
+                    int w = MeasureText(line, 24);
+                    Color c = next_is_role ? GOLD : WHITE;
+                    next_is_role = false; // After the first line (role), subsequent lines are names
+                    
+                    // Specific hardcoded checks for title and ending
+                    if (strcmp(line, "AISLING") == 0 || strcmp(line, "THE END") == 0 || strcmp(line, "THANK YOU FOR PLAYING") == 0) {
+                        c = WHITE;
+                        w = MeasureText(line, 30);
+                        DrawText(line, GetScreenWidth() / 2 - w / 2, line_y, 30, c);
+                        next_is_role = true; // reset so the next actual block starts with GOLD
+                    } else {
+                        DrawText(line, GetScreenWidth() / 2 - w / 2, line_y, 24, c);
+                    }
+                } else {
+                    // Even if offscreen, we must update the state machine
+                    if (strcmp(line, "AISLING") == 0 || strcmp(line, "THE END") == 0 || strcmp(line, "THANK YOU FOR PLAYING") == 0) {
+                        next_is_role = true;
+                    } else {
+                        next_is_role = false;
+                    }
+                }
+            }
+            
+            float last_line_y = game_context->story.ending_credits_y + (game_context->story.ending_credits_line_count * 30.0f);
+            if (last_line_y < -50.0f) {
+                DrawText("Press 'SPACE' to continue", GetScreenWidth() / 2 - MeasureText("Press 'SPACE' to continue", 20) / 2, GetScreenHeight() / 2 + 60, 20, GRAY);
+            }
+        } else if (game_context->story.ending_current_line < game_context->story.ending_line_count) {
+            // Parse "Speaker: text" format
+            const char* full_line = game_context->story.ending_lines[game_context->story.ending_current_line];
+            int line_len = strlen(full_line);
+            
+            // Find colon separator for speaker
+            const char* colon = strchr(full_line, ':');
+            if (colon) {
+                // Draw speaker name in GOLD
+                int speaker_len = (int)(colon - full_line);
+                char speaker[64] = {0};
+                strncpy(speaker, full_line, speaker_len < 63 ? speaker_len : 63);
+                
+                const char* dialogue_text = colon + 1;
+                while (*dialogue_text == ' ') dialogue_text++;
+                
+                // Fixed X positions based on full line
+                int speaker_x = GetScreenWidth() / 2 - MeasureText(full_line, 20) / 2;
+                int speaker_w = MeasureText(speaker, 20);
+                int colon_w = MeasureText(": ", 20);
+                
+                // Typing effect: figure out what to show
+                int typed_chars = game_context->story.ending_typing_index;
+                if (typed_chars <= speaker_len + 2) {
+                    // Still typing speaker name + ": "
+                    const char* typed = TextSubtext(full_line, 0, typed_chars);
+                    DrawText(typed, speaker_x, GetScreenHeight() / 2, 20, GOLD);
+                } else {
+                    // Speaker fully displayed, now typing dialogue
+                    char speaker_prefix[68] = {0};
+                    snprintf(speaker_prefix, sizeof(speaker_prefix), "%s: ", speaker);
+                    DrawText(speaker_prefix, speaker_x, GetScreenHeight() / 2, 20, GOLD);
+                    
+                    int dialogue_start = speaker_len + 2; // "Speaker: " length
+                    int dialogue_typed = typed_chars - dialogue_start;
+                    const char* typed_dialogue = TextSubtext(dialogue_text, 0, dialogue_typed);
+                    DrawText(typed_dialogue, speaker_x + speaker_w + colon_w, GetScreenHeight() / 2, 20, WHITE);
+                }
+            } else {
+                // No colon — plain text line
+                int start_x = GetScreenWidth() / 2 - MeasureText(full_line, 20) / 2;
+                const char* typed = TextSubtext(full_line, 0, game_context->story.ending_typing_index);
+                DrawText(typed, start_x, GetScreenHeight() / 2, 20, WHITE);
+            }
+            
+            // Show "Press SPACE to continue" when typing is done
+            if (game_context->story.ending_typing_index >= line_len) {
+                DrawText("Press 'SPACE' to continue", GetScreenWidth() - 300, GetScreenHeight() - 40, 20, GRAY);
+            }
         }
     }
 
@@ -300,7 +563,8 @@ void DrawGameplay(Scene* scene, Settings* game_settings, Interactive* game_inter
                 Character* player, NPC worldNPCs[], Item worldItems[], GameContext* game_context){
     // Draw gameplay
     BeginMode2D(game_context->camera);
-    DrawMap(game_map, game_context->fireplace_on, game_context->doors);
+    bool day2_active = (strcmp(game_context->story.day_folder, "day2") == 0);
+    DrawMap(game_map, game_context->fireplace_on, game_context->main_door_locked, day2_active, game_context->story.current_set_idx, game_context->bear_trap_inside);
 
     // Draw world items (Only pickable ones)
     for (int i = 0; i < game_context->itemCount; i++) {
@@ -313,6 +577,8 @@ void DrawGameplay(Scene* scene, Settings* game_settings, Interactive* game_inter
 
     // Draw NPCs
     for (int i = 0; i < game_context->npcCount; i++) {
+        if (strcmp(worldNPCs[i].base.interactable_id, "mike") == 0) continue; // Mike handled specially below
+
         if (worldNPCs[i].base.texture.id != 0) {
             DrawTexturePro(worldNPCs[i].base.texture, 
                 (Rectangle){0, 0, (float)worldNPCs[i].base.texture.width, (float)worldNPCs[i].base.texture.height},
@@ -320,7 +586,74 @@ void DrawGameplay(Scene* scene, Settings* game_settings, Interactive* game_inter
         }
     }
 
-    DrawCharacter(player);
+    // Draw Mike specially with animation
+    if (game_context->mike_down_tex.id != 0 && !game_context->mike_cutscene_played) {
+        float frame_w = (float)game_context->mike_down_tex.width / 4.0f;
+        int frame = (int)(GetTime() * 8) % 4;
+        // Mike is only "moving" during stages 2 and 3
+        if (game_context->mike_cutscene_stage < 2 || game_context->mike_cutscene_stage > 3) frame = 0; 
+        
+        Rectangle source = { frame * frame_w, 0, frame_w, (float)game_context->mike_down_tex.height };
+        // Use Mike's current position and Tiled size from GameContext
+        Rectangle dest = { game_context->mike_pos.x, game_context->mike_pos.y, game_context->mike_size.x, game_context->mike_size.y };
+        DrawTexturePro(game_context->mike_down_tex, source, dest, (Vector2){0,0}, 0.0f, WHITE);
+    }
+
+    bool is_lawnmower_phase = false;
+    bool has_lawnmower = false;
+    if (strcmp(game_context->story.day_folder, "day3") == 0) {
+        StoryPhase* active_phase = GetActivePhase(&game_context->story);
+        if (active_phase && strcmp(active_phase->name, "SET2-PHASE2") == 0) {
+            is_lawnmower_phase = true;
+            for (int i = 0; i < game_context->picked_up_count; i++) {
+                if (strcmp(game_context->picked_up_registry[i], "lawnmower") == 0) {
+                    has_lawnmower = true; break;
+                }
+            }
+        }
+    }
+
+    if (is_lawnmower_phase && has_lawnmower) {
+        // Special lawnmower mode drawing
+        bool is_moving = IsKeyDown(KEY_W) || IsKeyDown(KEY_S) || IsKeyDown(KEY_A) || IsKeyDown(KEY_D);
+        
+        // Determine effective visual direction (fallback to horizontal if moving vertically)
+        int effective_dir = player->direction;
+        if (effective_dir == 0 || effective_dir == 3) effective_dir = player->last_horiz_dir;
+        bool should_flip = (effective_dir == 1);
+
+        // 1. Draw Character with special animation
+        int char_frame = is_moving ? ((int)(GetTime() * 8) % 2) : 1;
+        float char_tex_w = (float)player->lawnmower_mode.width;
+        float char_tex_h = (float)player->lawnmower_mode.height;
+        float frame_w = char_tex_w / 2.0f;
+        Rectangle char_src = { (float)char_frame * frame_w, 0, should_flip ? -frame_w : frame_w, char_tex_h };
+        Rectangle char_dest = { player->position.x, player->position.y, player->size.x, player->size.y };
+        DrawTexturePro(player->lawnmower_mode, char_src, char_dest, (Vector2){0, 0}, 0.0f, WHITE);
+
+        // 2. Draw Lawnmower with animation
+        int mower_frame = is_moving ? ((int)(GetTime() * 8) % 2) : 0;
+        float mower_tex_w = (float)player->lawnmower_item.width;
+        float mower_tex_h = (float)player->lawnmower_item.height;
+        float mower_frame_w = mower_tex_w / 2.0f;
+        Rectangle mower_src = { (float)mower_frame * mower_frame_w, 0, should_flip ? -mower_frame_w : mower_frame_w, mower_tex_h };
+        
+        float mower_w = mower_frame_w;
+        float mower_h = mower_tex_h;
+        Rectangle lawnmower_rect = {0, 0, mower_w, mower_h};
+        
+        // Lawnmower is always on the side (left/right) in this mode
+        if (effective_dir == 1) { // left
+            lawnmower_rect.x = player->position.x - mower_w; 
+            lawnmower_rect.y = player->position.y + player->size.y - mower_h; 
+        } else { // right (effective_dir == 2)
+            lawnmower_rect.x = player->position.x + player->size.x; 
+            lawnmower_rect.y = player->position.y + player->size.y - mower_h; 
+        }     
+        DrawTexturePro(player->lawnmower_item, mower_src, lawnmower_rect, (Vector2){0, 0}, 0.0f, WHITE);
+    } else {
+        DrawCharacter(player);
+    }
 
     // Draw interaction tooltips (on top of entities)
     for (int i = 0; i < game_context->npcCount; i++){

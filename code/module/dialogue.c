@@ -12,6 +12,24 @@
  * - 2026-04-07: Implemented "Phone Notification" tags and "Sequential Follow-ups." (Goal: 
  *                Allow dialogues to trigger phase-based phone messages and merge choice-leaves 
  *                into sequential conversations.)
+ * - 2026-05-02: Implemented inline `SANITY` threshold gating for dialogue choices. (Goal: Support
+ *                `| SANITY > 50` syntax on `[CHOICE]` labels to dynamically hide choices when the
+ *                player's sanity does not meet the threshold, enabling the Saul ending branch where
+ *                certain options only appear if sanity is sufficiently high.)
+ * - 2026-05-02: Added `[IF] KARMA`, `[IF] CORRECT PLANTED`, and `[IF] BOX_SCORE` conditional blocks.
+ *                (Goal: Support conditional dialogue branching based on NPC karma values,
+ *                correctly-planted pot counts, and box puzzle scores for Day 3 and Day 4 interactions.)
+ * - 2026-05-02: Added `[TRIGGER_ENDING]` tag parsing in dialogue nodes. (Goal: Allow a dialogue
+ *                choice to directly trigger an ending sequence by specifying the ending script filename,
+ *                used for farmer and Saul endings.)
+ * - 2026-05-02: Expanded response buffer from 10 to 32. (Goal: Support longer NPC conversations
+ *                in Day 3 and Day 4 farmer dialogues that exceed the previous 10-line limit.)
+ * - 2026-05-02: Changed implicit line parsing to auto-set `is_conversation = true`. (Goal: Lines
+ *                without explicit tags are now treated as conversation responses automatically,
+ *                simplifying dialogue file authoring.)
+ * - 2026-05-03: Implemented `[PHOTO]` tag parsing and `[IF] SANITY` conditional branching. 
+ *                (Goal: Support narrative-driven photo overlays and sanity-gated narrative 
+ *                branches in dialogue and narration scripts.)
  * 
  * Revision Details:
  * - Added a recursive-like stack parser in `LoadInteraction` to handle multi-level indentation.
@@ -23,6 +41,19 @@
  * - Optimized character buffer handling for narrative checks.
  * - Added `[PHONE]` tag parsing to `LoadInteraction`, mapping it to `DialogueNode.triggers_phone`.
  * - Implemented root-level `[CONVERSATION]` linking to bridge different dialogue blocks.
+ * - Added `| SANITY > N` / `| SANITY < N` parsing on `[CHOICE]` labels: extracts operator and
+ *    threshold via `sscanf`, evaluates against `context->player->sanity`, and hides the choice
+ *    (via `skip_block`) if not met. The tag text is stripped from the displayed label.
+ * - Added `[IF] KARMA` block parsing using `GetAssetKarma(interactable_id)` with `>`, `<`, `==`.
+ * - Added `[IF] CORRECT PLANTED` block parsing that counts correctly-planted pots.
+ * - Added `[IF] BOX_SCORE` block parsing using `context->left_box_big + context->right_box_small`.
+ * - Added `[TRIGGER_ENDING]` tag parsing on dialogue nodes, storing the filename in `trigger_ending_file`.
+ * - Expanded `response_count` bounds check from `r_idx < 10` to `r_idx < 32` in both `[RESPONSE]`
+ *    and implicit line parsing blocks.
+ * - Changed implicit line parsing (`else if (line[0] != '[')`) to set `is_conversation = true`.
+ * - Added `[PHOTO] <filename>` tag parsing in `LoadInteraction` to store triggers in nodes.
+ * - Implemented `[IF] SANITY`, `[ELSE IF] SANITY`, and `[ELSE]` block parsing with support 
+ *    for `>`, `<`, and `==` comparisons against the player's sanity value.
  * 
  * Authors: Andrew Zhuo and Cornelius Jabez Lim
  */
@@ -34,30 +65,38 @@
 #include <ctype.h>
 #include "dialogue.h"
 #include "game_context.h"
+#include "assets.h"
 
-// Global registry for 'once-only' responses
-typedef struct {
-    char filename[128];
-    int index;
-} UsedRegistry;
+// Helper: replace literal "\n" sequences with actual newline characters
+static void ReplaceNewlines(char* str) {
+    char* src = str;
+    char* dst = str;
+    while (*src) {
+        if (*src == '\\' && *(src + 1) == 'n') {
+            *dst++ = '\n';
+            src += 2;
+        } else {
+            *dst++ = *src++;
+        }
+    }
+    *dst = '\0';
+}
 
-static UsedRegistry used_responses[256];
-static int used_count = 0;
-
-static bool IsResponseUsed(const char* filename, int index){
-    for (int i = 0; i < used_count; i++) {
-        if (strcmp(used_responses[i].filename, filename) == 0 && used_responses[i].index == index) {
+bool IsResponseUsed(struct GameContext* context, const char* text){
+    if (!context || !text) return false;
+    for (int i = 0; i < context->used_lines_count; i++) {
+        if (strncmp(context->dialogue_used_lines[i].text, text, 63) == 0) {
             return true;
         }
     }
     return false;
 }
 
-static void MarkResponseUsed(const char* filename, int index){
-    if (used_count < 256) {
-        strncpy(used_responses[used_count].filename, filename, 127);
-        used_responses[used_count].index = index;
-        used_count++;
+void MarkResponseUsed(struct GameContext* context, const char* text){
+    if (!context || !text) return;
+    if (context->used_lines_count < 256) {
+        strncpy(context->dialogue_used_lines[context->used_lines_count].text, text, 63);
+        context->used_lines_count++;
     }
 }
 
@@ -68,7 +107,7 @@ static int GetIndentation(const char* line) {
     return count;
 }
 
-void LoadInteraction(const char* filename, Dialogue* dialogue, struct GameContext* context) {
+void LoadInteraction(const char* filename, Dialogue* dialogue, struct GameContext* context, const char* interactable_id) {
     if (!dialogue) return;
     memset(dialogue, 0, sizeof(Dialogue));
     for (int i = 0; i < MAX_DIALOGUE_LINES; i++) {
@@ -92,6 +131,9 @@ void LoadInteraction(const char* filename, Dialogue* dialogue, struct GameContex
 
     // Track the current 'root' block
     int current_block_root = 0;
+    bool skip_block = false;
+    int skip_indent = -1;
+    bool chain_met = false;
 
     // Parse dialogue file
     while (fgets(raw_line, sizeof(raw_line), file)) {
@@ -100,6 +142,211 @@ void LoadInteraction(const char* filename, Dialogue* dialogue, struct GameContex
         line[strcspn(line, "\r\n")] = 0;
         if (strlen(line) == 0) continue;
 
+        if (strstr(line, "[IF] PLANTED")) {
+            bool is_planted = false;
+            if (context && interactable_id) {
+                for (int i = 0; i < 18; i++) {
+                    if (strcmp(context->pot_registry[i].pot_id, interactable_id) == 0) {
+                        is_planted = context->pot_registry[i].is_planted;
+                        break;
+                    }
+                }
+            }
+            skip_block = !is_planted;
+            skip_indent = line_indent;
+            chain_met = is_planted;
+            continue;
+        } else if (strstr(line, "[IF] TIME")) {
+            float limit = 0;
+            char op[4] = {0};
+            bool met = false;
+            if (sscanf(line, "[IF] TIME %s %f", op, &limit) == 2) {
+                if (strcmp(op, "<") == 0) met = (context->day3_mowing_timer < limit);
+                else if (strcmp(op, ">") == 0) met = (context->day3_mowing_timer > limit);
+            }
+            skip_block = !met;
+            skip_indent = line_indent;
+            chain_met = met;
+            continue;
+        } else if (strstr(line, "[IF] CORRECT LOGS") || strstr(line, "[ELSE IF] CORRECT LOGS")) {
+            int is_else = (strstr(line, "[ELSE") != NULL);
+            if (is_else && skip_indent != -1 && line_indent == skip_indent) {
+                if (chain_met) { skip_block = true; continue; }
+            }
+            
+            int val = 0;
+            if (context) val = context->left_box_big + context->right_box_small;
+            bool met = false;
+            
+            int target = 0;
+            if (strstr(line, "<")) {
+                sscanf(strstr(line, "<") + 1, "%d", &target);
+                met = (val < target);
+            } else if (strstr(line, ">")) {
+                sscanf(strstr(line, ">") + 1, "%d", &target);
+                met = (val > target);
+            } else if (strstr(line, "==")) {
+                sscanf(strstr(line, "==") + 2, "%d", &target);
+                met = (val == target);
+            }
+            
+            skip_block = !met;
+            if (!is_else) skip_indent = line_indent;
+            chain_met = met;
+            continue;
+        } else if (strstr(line, "[IF] CORRECT PLANTED") || strstr(line, "[ELSE IF] CORRECT PLANTED")) {
+            int is_else = (strstr(line, "[ELSE") != NULL);
+            if (is_else && skip_indent != -1 && line_indent == skip_indent) {
+                if (chain_met) { skip_block = true; continue; }
+            }
+            
+            int val = 0;
+            if (context) {
+                for (int i = 0; i < 18; i++) {
+                    if (context->pot_registry[i].is_planted) {
+                        if (strstr(context->pot_registry[i].pot_id, "green_pot") && context->pot_registry[i].seed_type == 1) val++;
+                        else if (strstr(context->pot_registry[i].pot_id, "red_pot") && context->pot_registry[i].seed_type == 2) val++;
+                        else if (strstr(context->pot_registry[i].pot_id, "orange_pot") && context->pot_registry[i].seed_type == 3) val++;
+                    }
+                }
+            }
+            bool met = false;
+            
+            int target = 0;
+            if (strstr(line, "<")) {
+                sscanf(strstr(line, "<") + 1, "%d", &target);
+                met = (val < target);
+            } else if (strstr(line, ">")) {
+                sscanf(strstr(line, ">") + 1, "%d", &target);
+                met = (val > target);
+            } else if (strstr(line, "==")) {
+                sscanf(strstr(line, "==") + 2, "%d", &target);
+                met = (val == target);
+            }
+            
+            skip_block = !met;
+            if (!is_else) skip_indent = line_indent;
+            chain_met = met;
+            continue;
+        } else if (strstr(line, "[IF] KARMA") || strstr(line, "[ELSE IF] KARMA")) {
+            int is_else = (strstr(line, "[ELSE") != NULL);
+            if (is_else && skip_indent != -1 && line_indent == skip_indent) {
+                if (chain_met) { skip_block = true; continue; }
+            }
+            
+            int val = 0;
+            if (interactable_id) val = GetAssetKarma(interactable_id);
+            bool met = false;
+            
+            int target = 0;
+            if (strstr(line, "<")) {
+                sscanf(strstr(line, "<") + 1, "%d", &target);
+                met = (val < target);
+            } else if (strstr(line, ">")) {
+                sscanf(strstr(line, ">") + 1, "%d", &target);
+                met = (val > target);
+            } else if (strstr(line, "==")) {
+                sscanf(strstr(line, "==") + 2, "%d", &target);
+                met = (val == target);
+            }
+            
+            skip_block = !met;
+            if (!is_else) skip_indent = line_indent;
+            chain_met = met;
+            continue;
+        } else if (strstr(line, "[IF] SANITY") || strstr(line, "[ELSE IF] SANITY")) {
+            int is_else = (strstr(line, "[ELSE") != NULL);
+            if (is_else && skip_indent != -1 && line_indent == skip_indent) {
+                if (chain_met) { skip_block = true; continue; }
+            }
+            
+            float val = 0;
+            if (context) val = context->player->sanity;
+            bool met = false;
+            
+            float target = 0;
+            if (strstr(line, "<")) {
+                sscanf(strstr(line, "<") + 1, "%f", &target);
+                met = (val < target);
+            } else if (strstr(line, ">")) {
+                sscanf(strstr(line, ">") + 1, "%f", &target);
+                met = (val > target);
+            } else if (strstr(line, "==")) {
+                sscanf(strstr(line, "==") + 2, "%f", &target);
+                met = (val == target);
+            }
+            
+            skip_block = !met;
+            if (!is_else) skip_indent = line_indent;
+            chain_met = met;
+            continue;
+        } else if (strstr(line, "_TALKED")) {
+            char* if_start = strstr(line, "[IF] ");
+            if (if_start) {
+                char npc_name[64] = {0};
+                char* talked_pos = strstr(if_start + 5, "_TALKED");
+                if (talked_pos) {
+                    int name_len = (int)(talked_pos - (if_start + 5));
+                    if (name_len > 0 && name_len < 64) {
+                        strncpy(npc_name, if_start + 5, name_len);
+                        npc_name[name_len] = '\0';
+                        for (int i = 0; npc_name[i]; i++) if (npc_name[i] >= 'A' && npc_name[i] <= 'Z') npc_name[i] += 32;
+                    }
+                }
+                bool met = false;
+                if (context && npc_name[0]) {
+                    int current_day = 1;
+                    if (sscanf(context->story.day_folder, "day%d", &current_day) != 1) current_day = 1;
+
+                    for (int m = 0; m < context->met_npc_count; m++) {
+                        if (strstr(context->met_npcs[m], npc_name)) {
+                            if (context->met_npc_day[m] < current_day) {
+                                met = true;
+                            } else if (context->met_npc_day[m] == current_day) {
+                                if (context->met_npc_set[m] < context->story.current_set_idx || 
+                                   (context->met_npc_set[m] == context->story.current_set_idx && context->met_npc_phase[m] < context->story.current_phase_idx)) {
+                                    met = true;
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+                bool expects_false = (strstr(line, "== FALSE") != NULL);
+                bool condition_met = expects_false ? !met : met;
+                skip_block = !condition_met;
+                skip_indent = line_indent;
+                chain_met = condition_met;
+            }
+            continue;
+        } else if (strstr(line, "[ELSE IF] TIME")) {
+            if (skip_indent != -1 && line_indent == skip_indent) {
+                if (chain_met) skip_block = true;
+                else {
+                    float limit = 0; char op[4] = {0}; bool met = false;
+                    if (sscanf(line, "[ELSE IF] TIME %s %f", op, &limit) == 2) {
+                        if (strcmp(op, "<") == 0) met = (context->day3_mowing_timer < limit);
+                        else if (strcmp(op, ">") == 0) met = (context->day3_mowing_timer > limit);
+                    }
+                    skip_block = !met;
+                    chain_met = met;
+                }
+            }
+            continue;
+        } else if (strstr(line, "[ELSE]")) {
+            if (skip_indent != -1 && line_indent == skip_indent) {
+                skip_block = chain_met;
+            }
+            continue;
+        }
+
+        if (skip_block && line_indent > skip_indent) {
+            continue;
+        } else if (line_indent <= skip_indent) {
+            skip_block = false;
+            skip_indent = -1;
+        }
+
         // Determine hierarchy based on indentation
         while (stack_ptr > 1 && line_indent <= indent_stack[stack_ptr - 1]) {
             stack_ptr--;
@@ -107,18 +354,23 @@ void LoadInteraction(const char* filename, Dialogue* dialogue, struct GameContex
 
         int current_parent_idx = node_stack[stack_ptr - 1];
 
-        // 4. Fade Tag
-        if (strstr(line, "[FADE]")) {
-            char color[32], path[128], loc[32];
-            if (sscanf(strstr(line, "[FADE]"), "[FADE] %s %s %s", color, path, loc) == 3) {
-                strncpy(dialogue->nodes[current_parent_idx].fade_color, color, 31);
-                strncpy(dialogue->nodes[current_parent_idx].target_map, path, 127);
-                strncpy(dialogue->nodes[current_parent_idx].target_loc, loc, 31);
-            }
-        }
-        // 5. Phone Notification Tag
+        // 4. Phone Notification Tag
         if (strstr(line, "[PHONE]")) {
             dialogue->nodes[current_parent_idx].triggers_phone = true;
+        }
+        // 5. Trigger Ending Tag
+        if (strstr(line, "[TRIGGER_ENDING]")) {
+            char filename[64];
+            if (sscanf(strstr(line, "[TRIGGER_ENDING]"), "[TRIGGER_ENDING] %s", filename) == 1) {
+                strncpy(dialogue->nodes[current_parent_idx].trigger_ending_file, filename, 63);
+            }
+        }
+        // 6. Photo Tag
+        if (strstr(line, "[PHOTO]")) {
+            char filename[64];
+            if (sscanf(strstr(line, "[PHOTO]"), "[PHOTO] %s", filename) == 1) {
+                strncpy(dialogue->nodes[current_parent_idx].photo_trigger, filename, 63);
+            }
         }
         if (strstr(line, "[CONVERSATION]")) {
             // If we are at root level and have already defined a block (choices or sequence)
@@ -140,17 +392,41 @@ void LoadInteraction(const char* filename, Dialogue* dialogue, struct GameContex
             char* text = strstr(line, "[RESPONSE]") + 10;
             while (*text == ' ') text++;
             
+            bool is_once = false;
+            char* once_tag = strstr(text, "| 1");
+            if (once_tag) {
+                is_once = true;
+                *once_tag = '\0';
+                // Trim trailing space before | 1
+                char* end = once_tag - 1;
+                while(end > text && *end == ' ') { *end = '\0'; end--; }
+            }
+            
             int r_idx = dialogue->nodes[current_parent_idx].response_count;
-            if (r_idx < 10) {
+            if (r_idx < 32) {
                 strncpy(dialogue->nodes[current_parent_idx].responses[r_idx], text, MAX_LINE_LENGTH - 1);
+                ReplaceNewlines(dialogue->nodes[current_parent_idx].responses[r_idx]);
+                dialogue->nodes[current_parent_idx].response_once[r_idx] = is_once;
                 dialogue->nodes[current_parent_idx].response_count++;
             }
         }
-        // Read simple sequential lines if it's a conversation block
-        else if (dialogue->nodes[current_parent_idx].is_conversation && line[0] != '[') {
+        // Read simple sequential lines implicitly as a conversation block
+        else if (line[0] != '[') {
+            dialogue->nodes[current_parent_idx].is_conversation = true;
+            bool is_once = false;
+            char* once_tag = strstr(line, "| 1");
+            if (once_tag) {
+                is_once = true;
+                *once_tag = '\0';
+                // Trim trailing space before | 1
+                char* end = once_tag - 1;
+                while(end > line && *end == ' ') { *end = '\0'; end--; }
+            }
             int r_idx = dialogue->nodes[current_parent_idx].response_count;
-            if (r_idx < 10) {
+            if (r_idx < 32) {
                 strncpy(dialogue->nodes[current_parent_idx].responses[r_idx], line, MAX_LINE_LENGTH - 1);
+                ReplaceNewlines(dialogue->nodes[current_parent_idx].responses[r_idx]);
+                dialogue->nodes[current_parent_idx].response_once[r_idx] = is_once;
                 dialogue->nodes[current_parent_idx].response_count++;
             }
         }
@@ -203,17 +479,47 @@ void LoadInteraction(const char* filename, Dialogue* dialogue, struct GameContex
                         
                         bool met = false;
                         if (context) {
+                            int current_day = 1;
+                            if (sscanf(context->story.day_folder, "day%d", &current_day) != 1) current_day = 1;
+
                             for (int m = 0; m < context->met_npc_count; m++) {
                                 if (strstr(context->met_npcs[m], target_npc)) { 
-                                    if (context->met_npc_set[m] < context->story.current_set_idx || 
-                                       (context->met_npc_set[m] == context->story.current_set_idx && context->met_npc_phase[m] < context->story.current_phase_idx)) {
+                                    if (context->met_npc_day[m] < current_day) {
                                         met = true;
+                                    } else if (context->met_npc_day[m] == current_day) {
+                                        if (context->met_npc_set[m] < context->story.current_set_idx || 
+                                           (context->met_npc_set[m] == context->story.current_set_idx && context->met_npc_phase[m] < context->story.current_phase_idx)) {
+                                            met = true;
+                                        }
                                     }
                                     break; 
                                 }
                             }
                         }
                         if (!met) continue; // HIDDEN per user request
+                    }
+
+                    // Check for inline sanity condition
+                    char* sanity_tag = strstr(label, "| SANITY");
+                    if (sanity_tag) {
+                        char op;
+                        int target_val;
+                        if (sscanf(sanity_tag, "| SANITY %c %d", &op, &target_val) == 2 && context) {
+                            bool met = false;
+                            if (op == '<') met = (context->player->sanity < target_val);
+                            else if (op == '>') met = (context->player->sanity > target_val);
+                            else if (op == '=') met = (context->player->sanity == target_val);
+                            
+                            if (!met) {
+                                skip_block = true;
+                                skip_indent = line_indent;
+                                continue; // Skip this choice and its children
+                            }
+                        }
+                        // Remove the tag from the label so it doesn't show in UI
+                        *sanity_tag = '\0';
+                        char* end = sanity_tag - 1;
+                        while(end > label && *end == ' ') { *end = '\0'; end--; }
                     }
 
                     // Metadata tags
@@ -250,6 +556,11 @@ void LoadInteraction(const char* filename, Dialogue* dialogue, struct GameContex
             else if (strstr(line, "+")) delta = 10;
             else if (strstr(line, "-")) delta = -10;
             dialogue->nodes[current_parent_idx].karma_change = delta;
+        } else if (strstr(line, "[SET_PLANTED:")) {
+            int seed = 0;
+            if (sscanf(strstr(line, "[SET_PLANTED:"), "[SET_PLANTED: %d]", &seed) == 1) {
+                dialogue->nodes[current_parent_idx].plant_seed_type = seed;
+            }
         }
     }
 

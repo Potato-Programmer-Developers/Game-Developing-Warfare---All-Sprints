@@ -1,0 +1,23 @@
+[PHONE] 730-187-15
+    [MESSAGE] I'm coming for you.
+        [CHOICE] Who are you??
+            [MESSAGE] Have you already forgotten?
+            [CHOICE] I didn't forget shit buddy.
+                [MESSAGE] Good. May the memory of his misery\nbe burned into your retinas as I\ntake your sight away.
+            [CHOICE] Huh?
+                [MESSAGE] What will you do? Are you going to\nremember? Or are you going to\nforget?
+                    [CHOICE] Remember.
+                        [SCENE] FLASHBACK
+                    [CHOICE] Forget
+                        [SCENE] CORRUPTED
+            [CHOICE] Leave me alone!
+        [CHOICE] What do you want??
+            [MESSAGE] What do YOU want?
+            [CHOICE] Peace.
+                [SANITY] +
+            [CHOICE] Forgiveness.
+                [SANITY] ++
+            [CHOICE] To repent.
+                [SANITY] -
+            [CHOICE] Leave me alone!
+        [CHOICE] Leave me alone!
