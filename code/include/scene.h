@@ -52,6 +52,7 @@ typedef struct Scene {
     bool is_fading_in;                              // True if fading from black
     char pending_map[128];                          // Map to load when black
     char pending_loc[32];                           // Location string to set when black
+    char pending_spawn_id[64];                      // Specific map object to spawn on
 } Scene;
 
 /**
@@ -178,8 +179,9 @@ void DrawGameplay(
  * @param color Color of the fade overlay.
  * @param map Map to load when black.
  * @param loc Location to set when black.
+ * @param spawn_id Specific map object ID to spawn the player on, or NULL.
  */
-void StartFadeTransition(Scene* scene, Color color, const char* map, const char* loc);
+void StartFadeTransition(Scene* scene, Color color, const char* map, const char* loc, const char* spawn_id);
 
 /**
  * @brief Updates the fade animation state.

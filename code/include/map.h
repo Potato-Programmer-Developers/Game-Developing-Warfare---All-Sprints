@@ -4,6 +4,14 @@
  * 
  * Handles management of tilesets and interactions with the cute_tiled library.
  * 
+ * Update History:
+ * - 2026-05-02: Added `bear_trap_inside` parameter to `DrawMap`. (Goal: Pass the bear trap
+ *                visibility flag from `GameContext` to the map renderer for conditional layer drawing.)
+ * 
+ * Revision Details:
+ * - Updated `DrawMap` signature to include `bool bear_trap_inside` for conditional `bear_trap`
+ *    tile layer rendering.
+ * 
  * Authors: Andrew Zhuo
  */
 
@@ -13,7 +21,7 @@
 #include "cute_tiled.h"
 #include "raylib.h"
 
-#define MAX_TILESETS 64
+#define MAX_TILESETS 128
 
 /**
  * @brief Enum for different locations in the game.
@@ -43,9 +51,10 @@ typedef struct Map{
  * @brief Loads Tiled map and tileset images.
  *
  * @param path Path to the Tiled map file.
+ * @param spawn_id Specific map object ID to spawn the player on, or NULL.
  * @return Initialized Map struct.
  */
-Map InitMap(const char* path);
+Map InitMap(const char* path, const char* spawn_id);
 
 /**
  * @brief Renders the map layers using Raylib textures.
@@ -54,7 +63,7 @@ Map InitMap(const char* path);
  * @param fireplace_on Flag to determine if fireplace layer should be drawn.
  * @param doors Flag to determine if doors layer should be drawn.
  */
-void DrawMap(Map* map, bool fireplace_on, bool doors);
+void DrawMap(Map* map, bool fireplace_on, bool doors, bool day2_active, int set_idx, bool bear_trap_inside);
 
 /**
  * @brief Deallocates map textures and Tiled memory.
@@ -70,7 +79,7 @@ void FreeMap(Map* map);
  * @param rect Rectangle to check for collision.
  * @return True if collision occurs, false otherwise.
  */
-bool CheckMapCollision(Map* map, Rectangle rect, char picked_up_registry[][64], int picked_up_count);
+bool CheckMapCollision(Map* map, Rectangle rect, char picked_up_registry[][64], int picked_up_count, bool day2_active);
 
 /**
  * @brief Retrieves the visual bounds of a named object from Tiled Object Layers.

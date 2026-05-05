@@ -7,10 +7,20 @@
  *                static NPC responses.)
  * - 2026-04-07: Added `triggers_phone` Support. (Goal: Enable branching dialogues 
  *                to initiate narrative phone sequences.)
+ * - 2026-05-02: Added `trigger_ending_file` field and expanded response capacity. (Goal: Support
+ *                dialogue-triggered endings and longer Day 3/4 NPC conversations that exceed the
+ *                previous 10-line response limit.)
+ * - 2026-05-03: Added `photo_trigger` to `DialogueNode`. (Goal: Support narrative-driven 
+ *                visual overlays triggered by [PHOTO] tags in dialogue files.)
  * 
  * Revision Details:
  * - Expanded `DialogueNode` to include a boolean flag for phone-triggering.
  * - Updated prototypes to support cross-module narrative signaling.
+ * - Added `char trigger_ending_file[64]` to `DialogueNode` for storing the ending script filename
+ *    parsed from `[TRIGGER_ENDING]` tags in dialogue files.
+ * - Expanded `responses` array from 10 to 32 entries and `response_once` from 10 to 32 entries
+ *    to accommodate longer NPC conversations in Day 3 and Day 4.
+ * - Added `char photo_trigger[64]` to the `DialogueNode` struct for storing asset filenames.
  * 
  * Authors: Andrew Zhuo and Cornelius Jabez Lim
  */
@@ -48,7 +58,8 @@ typedef struct {
  * @brief A single node in a conversation tree.
  */
 typedef struct {
-    char responses[10][MAX_LINE_LENGTH]; // NPC can say one of these (or all if conversation)
+    char responses[32][MAX_LINE_LENGTH]; // NPC can say one of these (or all if conversation)
+    bool response_once[32];              // If true, response plays only once across sessions
     int response_count;                  // Number of available responses
     bool is_conversation;                // If true, play responses sequentially
     char choices[4][64];                 // Player can say...
@@ -58,10 +69,13 @@ typedef struct {
     int choice_count;                    // Current choices in this node
     int sanity_change;                   // Sanity impact of reaching this node
     int karma_change;                    // Karma impact of reaching this node
+    int plant_seed_type;                 // Seed type to plant in an interactable pot
     char fade_color[32];                 // Custom fade color (BLACK, WHITE, etc)
     char target_map[128];                // Optional fade target
     char target_loc[32];                 // Optional fade location
     bool triggers_phone;                 // If true, activates the phase's phone notification
+    char trigger_ending_file[64];        // If set, triggers ending cutscene with this file
+    char photo_trigger[64];              // If set, displays this photo during notification
 } DialogueNode;
 
 
@@ -83,6 +97,8 @@ typedef struct Dialogue {
     int line_count;                                           // Total number of lines loaded
     int current_line;                                         // Index of the currently active line
     int selected_choice;                                      // Input from player
+    float typing_timer;                                       // Timer for progressive text
+    int typing_index;                                         // Current character index for text
 
     // Pending Transition (to be triggered when DIALOGUE ends)
     char pending_fade_color[32];                              // Fade color
@@ -113,6 +129,9 @@ const char* PickResponse(ResponseGroup* group, const char* filename);
  * @param filename FS path to the .txt interaction source.
  * @param dialogue Pointer to the Dialogue object to load the interaction into.
  */
-void LoadInteraction(const char* filename, Dialogue* dialogue, struct GameContext* context);
+void LoadInteraction(const char* filename, Dialogue* dialogue, struct GameContext* context, const char* interactable_id);
+
+bool IsResponseUsed(struct GameContext* context, const char* text);
+void MarkResponseUsed(struct GameContext* context, const char* text);
 
 #endif

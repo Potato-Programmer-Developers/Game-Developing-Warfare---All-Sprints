@@ -1,0 +1,44 @@
+[IF] MAIN_DOOR_LOCKED AND WINDOWS_LOCKED AND FIREPLACE_ON AND BEAR_TRAP_OUTSIDE
+    [SANITY] +
+    [PHONE] 730-187-15
+        [MESSAGE] You should know.
+        [MESSAGE] You can't hide forever.
+        [MESSAGE] You can run from me.
+        [MESSAGE] But I will return.
+        [MESSAGE] You can try to forget.
+        [MESSAGE] But I won't let you.
+[ELSE IF] MAIN_DOOR_LOCKED AND WINDOWS_LOCKED AND FIREPLACE_ON AND BEAR_TRAP_INSIDE
+    [PHONE] 730-187-15
+        [MESSAGE] You should know.
+        [MESSAGE] You can't hide forever.
+        [MESSAGE] You can run from me.
+        [MESSAGE] But I will return.
+        [MESSAGE] You can try to forget.
+        [MESSAGE] But I won't let you.
+    [IF] SANITY > 50
+        [TRIGGER_ENDING] mike_ending1.txt
+    [ELSE]
+        [TRIGGER_ENDING] mike_ending2.txt
+[ELSE IF] BEAR_TRAP_INSIDE
+    [PHONE] 730-187-15
+        [MESSAGE] You should know.
+        [MESSAGE] You can't hide forever.
+        [MESSAGE] You can run from me.
+        [MESSAGE] But I will return.
+        [MESSAGE] You can try to forget.
+        [MESSAGE] But I won't let you.
+    [IF] SANITY > 50
+        [TRIGGER_ENDING] mike_ending3.txt
+    [ELSE]
+        [TRIGGER_ENDING] mike_ending4.txt
+[ELSE IF] BEAR_TRAP_OUTSIDE
+    [SANITY] -
+    [PHONE] 730-187-15
+        [MESSAGE] You should know.
+        [MESSAGE] You can't hide forever.
+        [MESSAGE] You can run from me.
+        [MESSAGE] But I will return.
+        [MESSAGE] You can try to forget.
+        [MESSAGE] But I won't let you.
+    [IF] SANITY < 101
+        [TRIGGER_ENDING] mike_ending5.txt

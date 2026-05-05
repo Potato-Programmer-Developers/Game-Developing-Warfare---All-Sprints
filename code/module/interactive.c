@@ -9,6 +9,9 @@
  *                directly to the global Audio system.)
  * - 2026-04-06: Comprehensive "Asset-Light" & "Dynamic Scaling" Refactor. (Goal: Eliminate 
  *                static textures and implement resolution-independent UI layout logic.)
+ * - 2026-05-02: Fixed ghost "Continue" button after credits delete save data. (Goal: Ensure
+ *                the `continue_bounds` are explicitly reset when no save file exists, preventing
+ *                stale hover hitboxes on the Main Menu.)
  * 
  * Revision Details:
  * - Cleaned up `InitInteractive` to remove all `LoadTexture` calls for menu logic.
@@ -21,6 +24,8 @@
  *    dynamically based on the current `GetScreenWidth()` and `GetScreenHeight()`.
  * - Replaced hardcoded button coordinates with a scaling engine using `REF_WIDTH` (1200) 
  *    and `REF_HEIGHT` (800) as a baseline.
+ * - Added `interactive->continue_bounds = (Rectangle){0, 0, 0, 0}` in `UpdateInteractiveLayout`
+ *    when `data.dat` is missing to eliminate "ghost" hitboxes.
  * 
  * Authors: Andrew Zhuo
  */
@@ -64,6 +69,8 @@ void UpdateInteractiveLayout(Interactive* interactive, int game_state, Settings*
         } else{
             // Centered New Game button reference (370 x, 290 y, 460 w, 120 h)
             interactive->new_game_bounds = (Rectangle){370 * scale_x, 290 * scale_y, 460 * scale_x, 120 * scale_y};
+            // Clear continue bounds so it cannot be hovered or clicked
+            interactive->continue_bounds = (Rectangle){0, 0, 0, 0};
         }
         interactive->settings_bounds = (Rectangle){370 * scale_x, 440 * scale_y, 460 * scale_x, 120 * scale_y};
         interactive->quit_bounds = (Rectangle){370 * scale_x, 590 * scale_y, 460 * scale_x, 120 * scale_y};

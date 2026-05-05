@@ -9,6 +9,12 @@
  *                like talking to the farmer, are remembered across sessions.)
  * - 2026-04-05: Integrated the `StorySystem` save hook. (Goal: Store current Set/Phase 
  *                indices to allow accurate story resumption.)
+ * - 2026-05-02: Improved save data versioning and restoration order. (Goal: Support
+ *                conditional quest loading by restoring world state before story state, and
+ *                add version mismatch handling for the `Data` struct.)
+ * - 2026-05-02: Fixed initial sanity and karma values. (Goal: Set default sanity to 100
+ *                and NPC karma to neutral (49) to ensure correct branching in Day 4.)
+ * - 2026-05-02: Added `DeleteSaveData` functionality. (Goal: Allow post-credits cleanup.)
  * 
  * Revision Details:
  * - Refactored `LoadData` to include a path validation check for missing assets.
@@ -16,6 +22,10 @@
  * - Added a restoration hook for `Location` enums to ensure the player spawns in the 
  *    correct map type (Interior/Exterior).
  * - Fixed a data-truncation bug when saving long NPC ID strings.
+ * - Added `file_size == sizeof(Data)` validation in `LoadData` with invalid-state fallback.
+ * - Reordered `ApplyData` to restore world state (pickups, pots, NPCs) before `LoadStoryDay`.
+ * - Fixed default player sanity to `100.0f` and initial farmer/saul karma to `49` in `ResetGameData`.
+ * - Implemented `DeleteSaveData` using `remove("../data/data.dat")`.
  * 
  * Authors: Andrew Zhuo
  */
@@ -36,9 +46,12 @@ Data LoadData(Settings* game_settings){
     // Check if the data file exists
     if (FileExists("../data/data.dat")){
         unsigned char* file_data = LoadFileData("../data/data.dat", &file_size);
-        // Check if the data file is valid
         if (file_data != NULL && file_size == sizeof(Data)){
             memcpy(&data, file_data, sizeof(Data));       // Copy the data from the file to the data struct
+        } else {
+            data.position = (Vector2){-1.0f, -1.0f};      // Set to -1 to indicate invalid save data
+            data.volume = game_settings->game_volume;
+            TraceLog(LOG_WARNING, "Save data version mismatch! Expected %lu bytes, got %d bytes. Resetting.", sizeof(Data), file_size);
         }
         UnloadFileData(file_data);                      // Unload the data from the file
     } else {
@@ -61,11 +74,28 @@ void ApplyData(struct GameContext* context, Settings* game_settings, Data* data)
     }
     player->inventory_count = data->inventory_count;
 
-    // 2. Restore Story State
+    // 2. Restore World State (Must happen before loading story for conditional quests)
+    context->picked_up_count = data->picked_up_count;
+    for (int i = 0; i < data->picked_up_count && i < 512; i++){
+        strncpy(context->picked_up_registry[i], data->picked_up_registry[i], 63);
+    }
+    for (int i = 0; i < 18; i++) context->pot_registry[i] = data->pot_registry[i];
+    for (int i = 0; i < data->used_lines_count && i < 256; i++) {
+        context->dialogue_used_lines[i] = data->dialogue_used_lines[i];
+    }
+    context->met_npc_count = data->met_npc_count;
+    for (int i = 0; i < data->met_npc_count && i < 64; i++) {
+        strncpy(context->met_npcs[i], data->met_npcs[i], 63);
+        context->met_npc_day[i] = data->met_npc_day[i];
+        context->met_npc_set[i] = data->met_npc_set[i];
+        context->met_npc_phase[i] = data->met_npc_phase[i];
+    }
+
+    // 3. Restore Story State
     if (strlen(data->day_folder) > 0) {
         char path[128];
         sprintf(path, "../assets/text/%s/%s.txt", data->day_folder, data->day_folder);
-        LoadStoryDay(&context->story, path);
+        LoadStoryDay(&context->story, path, context);
         context->story.current_set_idx = data->set_idx;
         context->story.current_phase_idx = data->phase_idx;
         context->location = (Location)data->location;
@@ -73,7 +103,7 @@ void ApplyData(struct GameContext* context, Settings* game_settings, Data* data)
         // Map & Location Restoration
         if (data->map_path[0] != '\0' && strcmp(data->map_path, context->map->current_path) != 0) {
             FreeMap(context->map);
-            *(context->map) = InitMap(data->map_path);
+            *(context->map) = InitMap(data->map_path, NULL);
         }
         
         // Restore quest completion for active phase
@@ -85,12 +115,6 @@ void ApplyData(struct GameContext* context, Settings* game_settings, Data* data)
             // Synchronize world assets for the restored map/phase
             LoadPhaseAssets(active, context);
         }
-    }
-
-    // 3. Restore World State
-    context->picked_up_count = data->picked_up_count;
-    for (int i = 0; i < data->picked_up_count && i < 512; i++){
-        strncpy(context->picked_up_registry[i], data->picked_up_registry[i], 63);
     }
 
     // 4. Restore Karma
@@ -135,6 +159,17 @@ void SaveData(struct GameContext* context, Settings* game_settings){
     for (int i = 0; i < context->picked_up_count && i < 512; i++){
         strncpy(data.picked_up_registry[i], context->picked_up_registry[i], 63);
     }
+    for (int i = 0; i < 18; i++) data.pot_registry[i] = context->pot_registry[i];
+    for (int i = 0; i < context->used_lines_count && i < 256; i++) {
+        data.dialogue_used_lines[i] = context->dialogue_used_lines[i];
+    }
+    data.met_npc_count = context->met_npc_count;
+    for (int i = 0; i < context->met_npc_count && i < 64; i++) {
+        strncpy(data.met_npcs[i], context->met_npcs[i], 63);
+        data.met_npc_day[i] = context->met_npc_day[i];
+        data.met_npc_set[i] = context->met_npc_set[i];
+        data.met_npc_phase[i] = context->met_npc_phase[i];
+    }
 
     // 4. Harvest Karma
     GetRegistryKarma(data.npc_karma, 64);
@@ -156,7 +191,7 @@ void ResetGameData(struct GameContext* context, Vector2 default_spawn){
     // Reset Player
     player->position = default_spawn;
     player->inventory_count = 0;
-    player->sanity = 0.0f;
+    player->sanity = 100.0f;
     player->direction = 0;
     
     // Reset World
@@ -164,14 +199,26 @@ void ResetGameData(struct GameContext* context, Vector2 default_spawn){
     for (int i = 0; i < 512; i++){
         memset(context->picked_up_registry[i], 0, 64);
     }
+    memset(context->pot_registry, 0, sizeof(context->pot_registry));
+    memset(context->dialogue_used_lines, 0, sizeof(context->dialogue_used_lines));
+    context->used_lines_count = 0;
+    context->met_npc_count = 0;
+    for (int i = 0; i < 64; i++) {
+        memset(context->met_npcs[i], 0, 64);
+        context->met_npc_day[i] = 0;
+        context->met_npc_set[i] = 0;
+        context->met_npc_phase[i] = 0;
+    }
     
     // Reset Story
     context->story.current_set_idx = 0;
     context->story.current_phase_idx = 0;
     
     // Reset Karma
-    int zero_karma[64] = {0};
-    SetRegistryKarma(zero_karma, 64);
+    int initial_karma[64] = {0};
+    initial_karma[14] = 49;
+    initial_karma[15] = 49;
+    SetRegistryKarma(initial_karma, 64);
 }
 
 void HandleGameData(struct GameContext* context, Map* game_map, Settings* game_settings){
@@ -181,5 +228,11 @@ void HandleGameData(struct GameContext* context, Map* game_map, Settings* game_s
         ResetGameData(context, game_map->spawn_position);
     } else {
         ApplyData(context, game_settings, &data); 
+    }
+}
+
+void DeleteSaveData(void){
+    if (FileExists("../data/data.dat")){
+        remove("../data/data.dat");
     }
 }

@@ -1,0 +1,18 @@
+[CHOICE1] Plant tomato seeds
+    [IF] PLANTED
+        [RESPONSE] You've already planted seeds here. You should be the one buried beneath the dirt.
+    [ELSE]
+        [SET_PLANTED: 1]
+        [RESPONSE] You carefully plant the tomato seeds.
+[CHOICE2] Plant lettuce seeds
+    [IF] PLANTED
+        [RESPONSE] You've already planted seeds here. You should be the one buried beneath the dirt.
+    [ELSE]
+        [SET_PLANTED: 2]
+        [RESPONSE] You carefully plant the lettuce seeds.
+[CHOICE3] Plant potato seeds
+    [IF] PLANTED
+        [RESPONSE] You've already planted seeds here. You should be the one buried beneath the dirt.
+    [ELSE]
+        [SET_PLANTED: 3]
+        [RESPONSE] You carefully plant the potato seeds.

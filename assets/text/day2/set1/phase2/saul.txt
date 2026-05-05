@@ -1,0 +1,29 @@
+[CHOICE1] Good morning, Saul. (unable to choose this if the player didn't talk to saul earlier)
+    [RESPONSE] Good morning, Kane. You doing alright?
+    [RESPONSE] Hmm? Oh, hello, Kane. You doing alright?
+[CHOICE2] Miss me? (unable to choose this if the player didn't talk to saul earlier)
+    [RESPONSE] You doing alright?
+[CHOICE3] ...
+    [RESPONSE] Hmm? Who are you?
+    [CHOICE1] I'm Kane, a new worker here.
+        [RESPONSE] Oh, you must be the person Johnny talked about. I'm Saul. You good here?
+
+[CHOICE1] Something weird happened last night
+    [RESPONSE] Hmm? Did the squirrels scare you?
+    [CHOICE1] That's what they were? squirrels?
+        [RESPONSE] Don't worry about it, the squirrels here often move at night.
+        [SANITY] +
+    [CHOICE2] I feel like they weren't squirrels..
+        [RESPONSE] Don't worry about it, the squirrels here often move at night.
+    [CHOICE3] They were definitely not squirrels!
+        [RESPONSE] Hmm? What do you mean?
+        [SANITY] -
+        [CHOICE1] There were footsteps, sounded heavy, like a man.
+            [RESPONSE] It's probably Farmer Johnny, don't worry about it.
+        [CHOICE2] There was a rosary in the grass.
+            [RESPONSE] You can stop being creepy now.
+        [CHOICE3] They're coming for me.
+            [RESPONSE] You can stop being creepy now.
+            [SANITY] -
+[CHOICE2] Yeah yeah, I'm alright.
+    [RESPONSE] Cool cool. See you.

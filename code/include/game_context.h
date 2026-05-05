@@ -9,12 +9,17 @@
  *                persistence for item collection and NPC encounters.)
  * - 2026-04-05: Integrated the `StorySystem` and `Phone` modules into the context. (Goal: 
  *                Enable cross-module communication for narrative-driven triggers.)
+ * - 2026-05-03: Added photo overlay state fields and `mike_cutscene_active` flag. (Goal: Support 
+ *                narrative-driven image popups and the Mike cinematic sequence.)
  * 
  * Revision Details:
  * - Added `previous_state` and `settings_previous_state` for robust pause-menu navigation.
  * - Expanded the context to hold a pointer to the global `Scene` for camera/fade controls.
  * - Implemented `dream_lines` and `dream_count` for nocturnal event string storage.
  * - Added `left_box_big`, `left_box_small`, etc., for specific interaction mechanics in SET5.
+ * - Added `Texture2D photo_overlay`, `bool photo_overlay_active`, and `float photo_overlay_timer`
+ *    to the `GameContext` struct for managing narrative image popups.
+ * - Added `bool mike_cutscene_active` to `GameContext` to gate camera behavior.
  * 
  * Authors: Andrew Zhuo
  */
@@ -33,6 +38,17 @@ typedef struct Item Item;
 typedef struct Door Door;
 typedef struct Scene Scene;
 struct Dialogue;
+struct Settings; // Forward Declaration
+
+typedef struct {
+    char text[64];
+} UsedRegistry;
+
+typedef struct {
+    char pot_id[64];
+    bool is_planted;
+    int seed_type;              // 1: Tomato, 2: Lettuce, 3: Potato
+} PotStatus;
 
 /**
  * @brief Global container for session-persistent data.
@@ -51,6 +67,11 @@ typedef struct GameContext {
     Scene *game_scene;                // Pointer to the game scene for fading/transitions
     struct Dialogue *game_dialogue;   // Pointer to the dialogue system
     
+    // Photo overlay state
+    Texture2D photo_overlay;
+    bool photo_overlay_active;
+    float photo_overlay_timer;
+
     // Dynamic asset storage
     NPC* worldNPCs;            // Array of NPCs
     int npcCount;              // Number of NPCs
@@ -67,12 +88,17 @@ typedef struct GameContext {
     int left_box_small;                 // Number of small boxes on the left
     int right_box_big;                  // Number of big boxes on the right
     int right_box_small;                // Number of small boxes on the right
+    float day3_mowing_timer;            // Timer for Day 3 mowing performance
 
     bool fireplace_on;                  // Tracks if the fireplace is burning (SET7)
     bool doors;                         // Tracks if INTERIOR doors are active/drawn
     bool main_door_locked;              // Nightly: main door locked state
     bool windows_locked;                // Nightly: windows locked state
     bool has_room_keys;                 // Nightly: player has room keys
+    bool look_outside;                  // Nightly: looked outside before sleep
+    bool bear_trap_inside;              // Nightly: bear trap placed inside
+    bool bear_trap_outside;             // Nightly: bear trap placed outside
+    char last_narration_action[32];     // Nightly: last choice made before bed
 
     // Dream Sequence State
     bool dream_active;                  // Flag for active dream sequence
@@ -88,9 +114,22 @@ typedef struct GameContext {
     int picked_up_count;                // Number of unique items picked up
     
     char met_npcs[64][64];            // Registry of unique NPC IDs spoken to
+    int met_npc_day[64];              // Day index when met
     int met_npc_set[64];              // Set index when met
     int met_npc_phase[64];            // Phase index when met
     int met_npc_count;                // Number of NPCs spoken to
+
+    PotStatus pot_registry[18];       // Tracking for Day 2 planting mechanic
+    UsedRegistry dialogue_used_lines[256]; // Persisting once-only responses
+    int used_lines_count;             // Number of lines that have been used
+
+    // Mike Cutscene State
+    bool mike_cutscene_active;
+    int mike_cutscene_stage; // 0: Idle, 1: Focus Mike, 2: Mike to Road, 3: Mike Down, 4: Done
+    Vector2 mike_pos;
+    Vector2 mike_size;
+    Texture2D mike_down_tex;
+    bool mike_cutscene_played; // To prevent re-triggering
 } GameContext;
 
 

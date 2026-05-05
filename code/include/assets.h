@@ -4,6 +4,13 @@
  * 
  * This module handles loading and unloading assets for the game.
  * 
+ * Update History:
+ * - 2026-05-02: Added `GetAssetKarma` function prototype. (Goal: Expose karma lookup for
+ *                `[IF] KARMA` conditional branches in the dialogue system.)
+ * 
+ * Revision Details:
+ * - Added `int GetAssetKarma(const char* id)` prototype for querying individual NPC karma values.
+ * 
  * Authors: Andrew Zhuo
  */
 
@@ -36,6 +43,14 @@ void UnloadLocationAssets(GameContext* context);
  * @param delta The amount to change karma by.
  */
 void UpdateAssetKarma(const char* id, int delta);
+
+/**
+ * @brief Gets the persistent karma for an asset in the registry.
+ * 
+ * @param id The unique ID of the asset.
+ * @return The current karma value, or 0 if not found.
+ */
+int GetAssetKarma(const char* id);
 
 /**
  * @brief Populates an array with all persistent karma values from the registry.
