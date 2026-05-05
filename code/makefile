@@ -10,8 +10,8 @@
 # BUILD: gcc main.c module/*.c -Wall -std=c99 -Iinclude -Llib -lraylib -lopengl32 -lgdi32 -lwinmm -o main.exe
 # RUN: main.exe
 # CLEAN (.exe): del /f /q main.exe
-# CLEAN (obj folder): rmdir /s /q module\obj
-# CLEAN (data file): del /f /q ..\data\data.dat
+# CLEAN (obj folder): rmdir /s /q module/obj
+# CLEAN (data file): del /f /q ../data/data.dat
 
 # ~~~ Project Settings ~~~
 # This puts the .exe in the root folder so it's easy to find
