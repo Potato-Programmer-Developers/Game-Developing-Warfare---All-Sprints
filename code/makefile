@@ -1,4 +1,7 @@
 # IN CASE THE .EXE ISN'T WORKING, TRY RUNNING THIS MAKEFILE (Write in the Terminal)
+
+# Please install and place raylib.h and raymath.h in the include section (code/include)
+
 # Open code directory (cd code)
 # 1. Code: mingw32-make build - This will build the .exe and run it immediately
 # 2. Code: mingw32-make run - This will just run the .exe (useful if you just want to test changes without rebuilding)
